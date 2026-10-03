@@ -1,0 +1,57 @@
+# このリポジトリについて（Claude 向けの作業メモ）
+
+自炊した漫画（ScanSnap Home で作った PDF）を読む iOS アプリ「自炊ビューア」（SwiftUI）と、それを Mac なしでビルド・配信する GitHub Actions の設定が入っています。
+持ち主は Mac を持っておらず、Windows PC と iPhone から作業します。ビルドの確認も配信も、すべて GitHub Actions（macOS ランナー）で行います。
+仕組みは `marugenyori/claud_code`（PCIe学習アプリ）と同じです。
+
+## 返答のしかた
+
+- **日本語**で、専門用語には短い説明を添える
+- 持ち主が自分で操作する手順（Apple Developer、App Store Connect、GitHub の Secrets など）は、画面の項目名どおりに番号付きで書く
+- パスワード・API キー・`.p8` の中身は、チャットに貼ってもらわない。GitHub や Apple の画面に直接入力してもらう
+
+## 本のある場所
+
+- Windows では `C:\Users\yfb31\Documents\icloud同期フォルダ\iCloudDrive\ScanSnap Home`。iPhone では「ファイル」→ iCloud Drive → ScanSnap Home
+- 1冊＝1つの PDF。スキャンの質が低く、ページが横向き・逆さま、色や濃さがページごとにばらばら、黒い縁や余白が残っている
+- アプリはこのフォルダをファイル選択画面で選んでもらい、ブックマーク（security-scoped bookmark）で覚える。PDF はコピーせず、その場で読む。iCloud にしかないファイルは開くときに `NSFileCoordinator` でダウンロードする
+
+## 構成
+
+| パス | 内容 |
+|---|---|
+| `MangaViewer/App/` | `@main` の App |
+| `MangaViewer/Models/` | 本棚（`LibraryStore`）、本ごとの状態の保存（`BookState`）、読書画面の状態（`ReaderModel`）、設定 |
+| `MangaViewer/Processing/` | PDF の描画（`BookRenderer`）、ページの解析（`PageAnalyzer`）、補正（`ImageOps`）、表紙（`ThumbnailStore`） |
+| `MangaViewer/Views/` | 本棚、読書画面、拡大表示、設定 |
+| `MangaViewer.xcodeproj/` | フォルダ同期方式。`MangaViewer/` にファイルを置くだけでビルド対象になる |
+| `.github/workflows/ios-build.yml` | ビルド確認と TestFlight 配信 |
+
+- iOS 17 以上、Swift 5 モード、外部ライブラリなし（PDF は `CGPDFDocument`、補正は Core Image、向きの判定は Vision）
+
+## 自動補正のしくみ（`PageAnalyzer`）
+
+ページごとに、元の向きのまま長辺 1000px で描いて解析し、結果を本ごとの JSON（Application Support/Books）に保存する。
+
+1. **黒い縁**：外側から、85% 以上が暗い行・列を削る（各辺 15% まで）
+2. **色**：明るいほう上位 12% の平均を紙の色、暗いほう 1% の平均をインクの色とし、色ごとに「インク→黒、紙→白」に引き伸ばす。黄ばみもここで消える。その後も色の付いた画素が 3% を超えればカラーページ
+3. **余白**：インクのある行・列が出てくるまで内側へ（各辺 20% まで）。少し余白を残す
+4. **向き**：横長のページは 90°/270°、縦長は 0°/180° の2通りで文字認識（Vision、日本語）をして、読み取れた文字の多いほうにする。自信がない横長ページは、その本でほかに判定できた向きに合わせる
+
+- 解析方法を変えたら `PageAnalysis.currentVersion` を上げる（古い結果は捨てて解析し直す）
+- 回転は「時計回りの角度」で統一。手動で回したページ（`rotationOverrides`）は自動判定より優先
+
+## ビルドと配信
+
+- `main` に push すると、署名なしのシミュレータ向けビルドが自動で走る（エラーは実行結果ページの「ビルド結果」にまとまる）
+- TestFlight へ出すとき：Actions → iOS Build → Run workflow →「TestFlight にアップロードする」にチェック
+- ビルド番号は Actions の実行番号が自動で入る
+- 必要な Secrets：`APPLE_TEAM_ID`、`BUNDLE_ID`、`ASC_KEY_ID`、`ASC_ISSUER_ID`、`ASC_KEY_P8`
+- Bundle ID はビルド設定 `APP_BUNDLE_ID` で渡す（既定値 `com.marugenyori.mangaviewer`、実際は Secrets の `BUNDLE_ID`）。`PRODUCT_BUNDLE_IDENTIFIER` をコマンドラインで上書きしない
+- App Group などの Capability は使っていない。足すときは Apple Developer の Identifiers で App ID にも設定が必要
+
+## コードを変えるときの注意
+
+- **複数行文字列（`"""`）**：中の行が、閉じる `"""` より左に出るとコンパイルエラーになる
+- **排他アクセスエラー**：配列を書き換えているクロージャの中から、同じ構造体・クラスのプロパティを読まない（`PageAnalyzer.Pixels` の init はローカル変数で組み立ててから代入している）
+- 文字サイズは固定値（`.system(size:)`）を避け、`.body` や `.caption` などを使う
