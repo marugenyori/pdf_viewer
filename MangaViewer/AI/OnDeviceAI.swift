@@ -10,10 +10,15 @@ import FoundationModels
 enum OnDeviceAI {
     enum Failure: LocalizedError {
         case unavailable(String)
+        /// 渡した文字が多すぎて、一度に読める量（約 4,000 トークン）を超えた
+        case tooLong
+        case other(String)
 
         var errorDescription: String? {
             switch self {
             case .unavailable(let reason): reason
+            case .tooLong: "iPhone 内の AI が一度に読める量を超えました。「やりとりを消す」で会話を消してから、もう一度聞いてください。"
+            case .other(let message): "iPhone 内の AI が答えられませんでした。\(message)"
             }
         }
     }
@@ -45,8 +50,13 @@ enum OnDeviceAI {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             let session = LanguageModelSession(instructions: instructions)
-            let response = try await session.respond(to: prompt)
-            return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            do {
+                let response = try await session.respond(to: prompt)
+                return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch let error as LanguageModelSession.GenerationError {
+                if case .exceededContextWindowSize = error { throw Failure.tooLong }
+                throw Failure.other(error.localizedDescription)
+            }
         }
         #endif
         throw Failure.unavailable(current.reason)

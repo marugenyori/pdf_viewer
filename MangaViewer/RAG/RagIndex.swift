@@ -47,14 +47,9 @@ struct RagIndex {
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
         let decoded = try JSONDecoder().decode(FileFormat.self, from: data)
         let pages = decoded.pages.map {
-            Page(file: $0.file, page: $0.page, text: $0.text, folded: Self.fold($0.text) as NSString)
+            Page(file: $0.file, page: $0.page, text: $0.text, folded: SearchFolding.fold($0.text) as NSString)
         }
         return RagIndex(folder: folder, created: decoded.created ?? "", pages: pages)
-    }
-
-    /// 全角・半角や大文字・小文字の違いをなくす（索引の文字は PC で NFKC 済み）
-    static func fold(_ text: String) -> String {
-        text.precomposedStringWithCompatibilityMapping.lowercased()
     }
 
     /// 選んだフォルダからの、その本の相対パス
@@ -64,8 +59,9 @@ struct RagIndex {
 
     /// キーワードで探す。たくさんのキーワードに当たり、珍しいキーワードに当たるページほど上にする
     func search(_ keywords: [String], limit: Int = 30) -> [Hit] {
-        let terms = Array(Set(keywords.map { Self.fold($0).trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { $0.count >= 2 || $0.unicodeScalars.contains { $0.value > 0x2FFF } }))
+        // 1文字の語は、図の中の意味のない文字の並びに偶然当たりやすいので使わない
+        let terms = Array(Set(keywords.map { SearchFolding.foldQuery($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.count >= 2 }))
         guard !terms.isEmpty, !pages.isEmpty else { return [] }
 
         var counts = [[Int]](repeating: [], count: pages.count)
@@ -109,15 +105,21 @@ struct RagIndex {
         return count
     }
 
-    /// 当たった言葉のまわりを少しだけ切り出す
+    /// 当たった言葉のまわりを、元の文字（濁点などを落とす前）で少しだけ切り出す
     private static func snippet(of page: Page, around term: String) -> String {
-        let folded = page.folded
+        var map: [Int]? = []
+        let folded = SearchFolding.fold(page.text, map: &map) as NSString
         let found = folded.range(of: term, options: .literal)
-        guard found.location != NSNotFound else { return String(page.text.prefix(80)) }
-        let start = max(0, found.location - 40)
-        let end = min(folded.length, start + 120)
-        let body = folded.substring(with: NSRange(location: start, length: end - start))
+        let original = page.text as NSString
+        guard found.location != NSNotFound, let map, found.location < map.count else {
+            return String(page.text.prefix(80))
+        }
+        let hit = map[found.location]
+        let start = max(0, hit - 40)
+        let end = min(original.length, start + 120)
+        let body = original.substring(with: original.rangeOfComposedCharacterSequences(
+            for: NSRange(location: start, length: end - start)))
             .replacingOccurrences(of: "\n", with: " ")
-        return (start > 0 ? "…" : "") + body + (end < folded.length ? "…" : "")
+        return (start > 0 ? "…" : "") + body + (end < original.length ? "…" : "")
     }
 }

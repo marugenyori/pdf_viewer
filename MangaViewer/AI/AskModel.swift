@@ -43,6 +43,7 @@ final class AskModel: ObservableObject {
     分からないことや自信のないことは、推測だと分かるように書いてください。
     まだ読んでいない先の展開（ネタバレ）は、読者がはっきり求めたときだけ書いてください。
     ページの台詞や文章を長く書き写すことはしないでください。
+    作品の登場人物や筋について確かな知識がないときは、知らないとはっきり書き、作り話をしないでください。
     """
 
     func ask(_ question: String, book: Book, pages: [Int], images: [UIImage], engine: AskEngine) async {
@@ -79,13 +80,28 @@ final class AskModel: ObservableObject {
                 entries[index].answer = try await ClaudeClient.ask(system: Self.instructions, text: text, images: jpegs)
             } else {
                 entries[index].engineName = "iPhone 内の AI"
+                // iPhone 内の AI は一度に読める量が少ない（約 4,000 トークン）ので、短くまとめて渡す。
+                // それでも超えたら、これまでのやりとりを外し、ページの文字も減らしてもう一度聞く
                 let pageText = await OnDeviceAI.pageText(images)
-                var prompt = context
-                if !pageText.isEmpty {
-                    prompt += "\n\nページから読み取った文字（読み取りが不正確なことがあります）:\n\(pageText)"
+                let shortHistory = entries.dropLast().suffix(2).compactMap { entry -> String? in
+                    guard let answer = entry.answer else { return nil }
+                    return "Q: \(entry.question)\nA: \(answer.prefix(200))"
+                }.joined(separator: "\n")
+                func prompt(historyText: String, pageLimit: Int) -> String {
+                    var text = "本: \(book.title)\n今開いているページ: \(label) ページ目"
+                    if !historyText.isEmpty { text += "\n\nこれまでのやりとり:\n\(historyText)" }
+                    if !pageText.isEmpty {
+                        text += "\n\nページから読み取った文字（不正確なことがあります）:\n\(pageText.prefix(pageLimit))"
+                    }
+                    return text + "\n\n質問: \(trimmed)"
                 }
-                prompt += "\n\n質問: \(trimmed)"
-                entries[index].answer = try await OnDeviceAI.ask(instructions: Self.instructions, prompt: prompt)
+                do {
+                    entries[index].answer = try await OnDeviceAI.ask(
+                        instructions: Self.instructions, prompt: prompt(historyText: shortHistory, pageLimit: 1000))
+                } catch OnDeviceAI.Failure.tooLong {
+                    entries[index].answer = try await OnDeviceAI.ask(
+                        instructions: Self.instructions, prompt: prompt(historyText: "", pageLimit: 300))
+                }
             }
         } catch {
             entries[index].error = error.localizedDescription
