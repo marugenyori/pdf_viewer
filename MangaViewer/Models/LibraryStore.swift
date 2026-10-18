@@ -7,6 +7,8 @@ final class LibraryStore: ObservableObject {
 
     @Published private(set) var rootURL: URL?
     @Published private(set) var books: [Book] = []
+    /// 誌面検索（RAG）の索引ファイル
+    @Published private(set) var ragIndexes: [RagIndexFile] = []
     @Published private(set) var isScanning = false
     @Published var errorMessage: String?
 
@@ -66,17 +68,19 @@ final class LibraryStore: ObservableObject {
         let found = await Task.detached(priority: .userInitiated) {
             Self.scan(root: root)
         }.value
-        books = found
+        books = found.books
+        ragIndexes = found.indexes
     }
 
     /// フォルダの中を再帰的にたどって PDF を集める
-    nonisolated private static func scan(root: URL) -> [Book] {
+    nonisolated private static func scan(root: URL) -> (books: [Book], indexes: [RagIndexFile]) {
         let keys: [URLResourceKey] = [.isDirectoryKey, .fileSizeKey, .ubiquitousItemDownloadingStatusKey]
         guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys, options: []) else {
             return []
         }
         let rootPath = root.standardizedFileURL.path
         var result: [Book] = []
+        var indexes: [RagIndexFile] = []
         for case let url as URL in enumerator {
             var name = url.lastPathComponent
             var realURL = url
@@ -87,6 +91,14 @@ final class LibraryStore: ObservableObject {
                 name = String(name.dropFirst().dropLast(".icloud".count))
                 realURL = url.deletingLastPathComponent().appendingPathComponent(name)
                 placeholder = true
+            }
+            if name == RagIndex.fileName {
+                // PC で作った誌面検索の索引
+                var folderPath = realURL.deletingLastPathComponent().standardizedFileURL.path
+                folderPath = folderPath.hasPrefix(rootPath) ? String(folderPath.dropFirst(rootPath.count)) : ""
+                if folderPath.hasPrefix("/") { folderPath.removeFirst() }
+                indexes.append(RagIndexFile(url: realURL, folder: folderPath))
+                continue
             }
             guard name.lowercased().hasSuffix(".pdf") else { continue }
 
@@ -109,12 +121,13 @@ final class LibraryStore: ObservableObject {
 
             result.append(Book(url: realURL, relativePath: relative, title: title, folder: folder, isDownloaded: downloaded))
         }
-        return result.sorted {
+        let sorted = result.sorted {
             if $0.folder != $1.folder {
                 return $0.folder.localizedStandardCompare($1.folder) == .orderedAscending
             }
             return $0.title.localizedStandardCompare($1.title) == .orderedAscending
         }
+        return (sorted, indexes)
     }
 
     /// 同じフォルダで、名前順で次の本（次の巻）
@@ -142,4 +155,12 @@ final class LibraryStore: ObservableObject {
             }
         }.value
     }
+}
+
+/// 誌面検索（RAG）の索引ファイルの場所
+struct RagIndexFile: Hashable, Identifiable {
+    let url: URL
+    /// 索引ファイルのあるフォルダ（選んだフォルダからの相対パス）
+    let folder: String
+    var id: String { folder }
 }

@@ -13,8 +13,10 @@ struct ReaderView: View {
     @State private var sliderValue: Double = 0
     var onClose: () -> Void = {}
 
-    init(book: Book, defaults: CorrectionSettings, nextBook: Book? = nil, onClose: @escaping () -> Void = {}) {
-        _model = StateObject(wrappedValue: ReaderModel(book: book, defaults: defaults, nextBook: nextBook))
+    init(book: Book, defaults: CorrectionSettings, nextBook: Book? = nil, startPage: Int? = nil,
+         onClose: @escaping () -> Void = {}) {
+        _model = StateObject(wrappedValue: ReaderModel(book: book, defaults: defaults, nextBook: nextBook,
+                                                       startPage: startPage))
         self.onClose = onClose
     }
 

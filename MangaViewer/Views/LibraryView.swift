@@ -8,7 +8,8 @@ struct LibraryView: View {
     @EnvironmentObject private var progress: ProgressStore
     @State private var pickingFolder = false
     @State private var showSettings = false
-    @State private var openBook: Book?
+    @State private var openRequest: OpenRequest?
+    @State private var showRag = false
 
     var body: some View {
         NavigationStack {
@@ -23,16 +24,28 @@ struct LibraryView: View {
                                                description: Text("選んだフォルダの中に PDF がありません。右上の … から、ほかのフォルダを選べます。"))
                     }
                 } else {
-                    FolderShelfView(path: "") { openBook = $0 }
+                    FolderShelfView(path: "") { openRequest = OpenRequest(book: $0) }
                 }
             }
             .navigationTitle("本棚")
             .navigationDestination(for: FolderRoute.self) { route in
-                FolderShelfView(path: route.path) { openBook = $0 }
+                FolderShelfView(path: route.path) { openRequest = OpenRequest(book: $0) }
             }
             .toolbar {
+                if !library.ragIndexes.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showRag = true } label: {
+                            Image(systemName: "text.magnifyingglass")
+                        }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        if !library.ragIndexes.isEmpty {
+                            Button { showRag = true } label: {
+                                Label("誌面を検索・質問（RAG）", systemImage: "text.magnifyingglass")
+                            }
+                        }
                         Button { pickingFolder = true } label: {
                             Label("フォルダを選び直す", systemImage: "folder")
                         }
@@ -56,8 +69,20 @@ struct LibraryView: View {
                 DefaultSettingsView()
                     .environmentObject(settings)
             }
-            .fullScreenCover(item: $openBook) { book in
-                ReaderView(book: book, defaults: settings.defaults, nextBook: library.nextBook(after: book)) {
+            .sheet(isPresented: $showRag) {
+                RagSearchView { book, page in
+                    showRag = false
+                    // シートが閉じてから読書画面を開く
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        openRequest = OpenRequest(book: book, page: page)
+                    }
+                }
+                .environmentObject(library)
+            }
+            .fullScreenCover(item: $openRequest) { request in
+                let book = request.book
+                ReaderView(book: book, defaults: settings.defaults, nextBook: library.nextBook(after: book),
+                           startPage: request.page) {
                     // ダウンロードされた本の表紙を作るため、一覧を読み直す
                     Task { await library.refresh() }
                 }
@@ -194,4 +219,11 @@ struct DefaultSettingsView: View {
             }
         }
     }
+}
+
+/// 読書画面を開く依頼（どの本を、どのページから）
+struct OpenRequest: Identifiable {
+    let book: Book
+    var page: Int? = nil
+    let id = UUID()
 }

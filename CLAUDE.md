@@ -62,6 +62,7 @@
 - **背景色**：`ReaderBackground`（黒・グレー・生成り・白）
 - **傾きの補正**：`PageAnalyzer.detectSkew`。インクの点を -20〜20° で回し、行・列への集まり方が最も鋭い角度を探す。1° 以上かつ 0° より 1.3 倍以上鋭いときだけ補正（斜めのコマ割りを誤って回さないため）
 - **質問（AI）**：`MangaViewer/AI/`。読書画面の吹き出しボタン。Claude（`ClaudeClient`：Messages API を HTTP で直接。`claude-opus-5-5`、effort low、`fallbacks: "default"`、ページ画像を長辺 1568px の JPEG で添付。キーはキーチェーン）と、iPhone 内の AI（`OnDeviceAI`：FoundationModels、iOS 26 以降。画像は読めないので Vision でページの文字を読み取って渡す）。質問は毎回1回きりのリクエストにし、それまでのやりとりは文章として添える（過去の応答を送り直さないので、思考ブロックの扱いを気にしなくてよい）
+- **誌面検索（RAG）**：`MangaViewer/RAG/`。PC で `tools/build_rag_index.py` が作った `rag_index.json`（フォルダの直下）を、本棚の読み込み時に見つけて使う。検索はアプリ内のキーワード検索（NSString の部分一致、珍しい語ほど重く、複数語がそろうほど上）。AI に聞くときは、AI に検索語を作らせ → 検索 → 上位ページの文字を渡して出典番号付きで答えさせる。索引の形式は `docs/PC_RAG_REQUEST.md`。索引は雑誌の本文なのでリポジトリに入れない
 - 保存する構造体（`BookState`、`CorrectionSettings`）に項目を足すときは、`init(from:)` に `decodeIfPresent` を足す。そうしないと前の保存データが読めず、読んだ位置が消える
 
 ## ビルドと配信

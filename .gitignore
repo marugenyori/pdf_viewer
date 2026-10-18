@@ -10,3 +10,4 @@ ExportOptions.plist
 # 見本ページ（リポジトリに入れない）
 scan_samples/
 *.pdf
+rag_index.json

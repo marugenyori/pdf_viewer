@@ -48,9 +48,13 @@ final class ReaderModel: ObservableObject {
     /// ページ一覧の小さな画像
     @Published private(set) var pageThumbnails: [Int: UIImage] = [:]
 
-    init(book: Book, defaults: CorrectionSettings, nextBook: Book? = nil) {
+    /// 開いたときに表示するページ（誌面検索から開いたとき）。nil なら前回の続き
+    private let startPage: Int?
+
+    init(book: Book, defaults: CorrectionSettings, nextBook: Book? = nil, startPage: Int? = nil) {
         self.book = book
         self.nextBook = nextBook
+        self.startPage = startPage
         self.state = BookStateStore.load(for: book, defaults: defaults)
     }
 
@@ -120,7 +124,7 @@ final class ReaderModel: ObservableObject {
         }
         self.renderer = renderer
         pageCount = renderer.pageCount
-        let start = min(max(0, state.lastPage), pageCount - 1)
+        let start = min(max(0, startPage ?? state.lastPage), pageCount - 1)
         spreadIndex = indexOfSpread(containing: start)
         phase = .ready
         scheduleLoading()
