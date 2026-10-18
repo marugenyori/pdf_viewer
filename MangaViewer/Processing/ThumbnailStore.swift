@@ -5,6 +5,12 @@ actor ThumbnailStore {
     static let shared = ThumbnailStore()
 
     private var memory: [String: UIImage] = [:]
+    /// 表紙の作り方を変えたら上げる。古い表紙は使わず作り直す
+    private static let version = 2
+
+    private static func fileName(for book: Book) -> String {
+        "\(book.key)-v\(version).jpg"
+    }
     /// 作成中の表紙（同じ本を二重にダウンロードしないため）
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
 
@@ -17,7 +23,7 @@ actor ThumbnailStore {
 
     func thumbnail(for book: Book, settings: CorrectionSettings) async -> UIImage? {
         if let image = memory[book.key] { return image }
-        let file = directory.appendingPathComponent(book.key + ".jpg")
+        let file = directory.appendingPathComponent(Self.fileName(for: book))
         if let image = UIImage(contentsOfFile: file.path) {
             memory[book.key] = image
             return image
@@ -59,9 +65,10 @@ actor ThumbnailStore {
         var crop = NormRect.full
         if settings.trimMargins { crop = analysis.contentCrop } else if settings.removeBlackEdges { crop = analysis.edgeCrop }
         if analysis.isLandscape {
-            // 1ページ目はカバーを広げた全体（左から 折り返し・裏表紙・背・表表紙・折り返し、約 1049×498pt）。
-            // 表表紙（約 303pt 幅＝全体の 0.29）は右の折り返しの左にある。折り返しの幅は推定（全体の約 0.2）
-            crop = NormRect(x: 0.51, y: crop.y, w: 0.29, h: crop.h)
+            // 1ページ目はカバーを広げた全体（約 1049×498pt）。実機で見ると、左から
+            // 折り返し・表表紙・背（0.51〜0.54 あたり）・裏表紙（バーコード）・折り返し の順だった。
+            // 表表紙は背のすぐ左で、幅は高さ × 新書判の縦横比（約 0.64）＝全体の約 0.30
+            crop = NormRect(x: 0.20, y: crop.y, w: 0.30, h: crop.h)
         }
         let color: ImageOps.ColorTransform? = settings.colorMode == .off ? nil :
             .init(black: analysis.black, white: analysis.white,
@@ -73,6 +80,6 @@ actor ThumbnailStore {
 
     func invalidate(_ book: Book) {
         memory[book.key] = nil
-        try? FileManager.default.removeItem(at: directory.appendingPathComponent(book.key + ".jpg"))
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent(Self.fileName(for: book)))
     }
 }
