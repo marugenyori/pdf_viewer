@@ -61,7 +61,9 @@ enum RagAssistant {
             return Answer(text: text, sources: top, engineName: "Claude")
         }
         if case .shortcut(let ai) = backend {
-            let text = try await ChatGPTBridge.shared.ask(prompt: "\(answerInstructions)\n\n\(prompt)", image: nil, via: ai)
+            // AI 向けの指示文は付けず、ふつうの依頼の形にする（AskModel と同じ理由）
+            let request = "技術雑誌のバックナンバーから見つけた記事の抜き出し（OCR なので誤字があります）をもとに、質問に日本語で答えてください。根拠にした抜き出しの番号を [1] のように書いてください。\n\n\(prompt)"
+            let text = try await ChatGPTBridge.shared.ask(prompt: request, image: nil, via: ai)
             return Answer(text: text, sources: top, engineName: ai.displayName)
         }
         let text = try await OnDeviceAI.ask(instructions: answerInstructions, prompt: prompt)

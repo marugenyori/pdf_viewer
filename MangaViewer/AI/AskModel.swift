@@ -92,7 +92,10 @@ final class AskModel: ObservableObject {
         do {
             if case .shortcut(let ai) = engine.backend {
                 entries[index].engineName = ai.displayName
-                let prompt = "\(Self.instructions)\n\n\(context)\n\n（今開いているページの画像をクリップボードに入れてあります）\n\n質問: \(trimmed)"
+                // ショートカット経由の AI には、AI 向けの指示文（「あなたは〜です」）を付けない。
+                // Apple Intelligence の ChatGPT が「応答を提供できません」と断ったため（実機で確認）。ふつうの質問の形にする
+                let pageLabelText = pages.count > 1 ? "\(label) ページ目（見開き）" : "\(label) ページ目"
+                let prompt = "『\(book.title)』の \(pageLabelText)を読んでいます。\(trimmed)（日本語で短めに答えてください。この先の展開には触れないでください）"
                 entries[index].answer = try await ChatGPTBridge.shared.ask(prompt: prompt, image: images.first, via: ai)
             } else if engine.backend == .claude {
                 entries[index].engineName = "Claude"
