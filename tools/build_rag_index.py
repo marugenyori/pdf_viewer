@@ -29,10 +29,19 @@ FORMAT_VERSION = 1
 JA = r"[\u3000-\u303f\u3040-\u30ff\u4e00-\u9fff\uff00-\uffef]"
 
 
+KANA = r"[ァ-ヺー]"  # カタカナと長音
+
+
 def clean(text: str) -> str:
-    """OCR の文字を検索しやすく整える。全角英数字を半角にし（NFKC）、日本語の文字の間の空白を消す"""
+    """OCR の文字を検索しやすく整える。全角英数字を半角にし（NFKC）、日本語の文字の間の空白を消す。
+    ScanSnap の OCR によくある誤りも直す（カタカナの「ト」が「l、」「I、」「1、」になる、「ハー」が「八一」になる）"""
     text = unicodedata.normalize("NFKC", text)
     text = re.sub(rf"(?<={JA})[ \t]+(?={JA})", "", text)
+    text = re.sub(rf"(?<={KANA})[lI1|][、,]?(?={KANA})", "ト", text)
+    text = re.sub(rf"(?<={KANA})[lI1|][、,](?![A-Za-z0-9])", "ト", text)
+    text = re.sub(rf"八[一ー](?={KANA})", "ハー", text)
+    # 記号だけの行（図や罫線の切れ端）は消す
+    text = "\n".join(l for l in text.split("\n") if re.search(r"[0-9A-Za-z぀-ヿ一-鿿]", l) or not l.strip())
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
