@@ -28,14 +28,13 @@ actor ThumbnailStore {
         var crop = NormRect.full
         if settings.trimMargins { crop = analysis.contentCrop } else if settings.removeBlackEdges { crop = analysis.edgeCrop }
         if analysis.isLandscape {
-            // 1ページ目はカバーを広げた全体（袖・裏表紙・背・表紙）。表紙の部分だけを切り出す。
-            // 右綴じは表紙が左側、左綴じは右側にくる（袖の幅は本によって違うので、おおよその位置）
-            let x = settings.direction == .rightToLeft ? 0.08 : 0.52
-            crop = NormRect(x: x, y: crop.y, w: 0.40, h: crop.h)
+            // 1ページ目はカバーを広げた全体（左から 折り返し・裏表紙・背・表表紙・折り返し、約 1049×498pt）。
+            // 表表紙（約 303pt 幅＝全体の 0.29）は右の折り返しの左にある。折り返しの幅は推定（全体の約 0.2）
+            crop = NormRect(x: 0.51, y: crop.y, w: 0.29, h: crop.h)
         }
         let color: ImageOps.ColorTransform? = settings.colorMode == .off ? nil :
             .init(black: analysis.black, white: analysis.white,
-                  grayscale: settings.colorMode == .grayscale || (settings.colorMode == .auto && !analysis.isColor),
+                  grayscale: settings.colorMode == .grayscale || (settings.colorMode != .color && !analysis.isColor),
                   gamma: settings.inkDarkness)
         let cg = ImageOps.process(raw, crop: crop, color: color, clockwise: 0) ?? raw
         let image = UIImage(cgImage: cg)

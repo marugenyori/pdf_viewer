@@ -141,21 +141,23 @@ final class ReaderModel: ObservableObject {
         if let manual = state.rotationOverrides[page] { return manual }
         // 1ページ目は、カバーを広げた全体を横長のまま1枚にスキャンしたもの。回さない
         guard page > 0, state.settings.autoRotate, let analysis = state.analyses[page] else { return 0 }
-        if analysis.isLandscape && !analysis.rotationConfident {
-            return majoritySidewaysRotation()
-        }
-        return analysis.autoRotation ?? (analysis.isLandscape ? majoritySidewaysRotation() : 0)
+        // 横長のページは文字認識で 90° か 270° を選ぶ。判定に自信がなくても、わずかでも読めたほうを使う。
+        // 調査では同じ本の中でも 90° と 270° が半々ほど混ざっていたので、ほかのページの向きには合わせない
+        return analysis.autoRotation ?? (analysis.isLandscape ? 90 : 0)
     }
 
-    /// 自信を持って判定できた横向きページの多いほうの向き（なければ 90 度）。
-    /// 調査では同じ本の中でも 90° と 270° が半々ほど混ざっていたので、当てにならない。間違ったら手動で直してもらう
-    private func majoritySidewaysRotation() -> Int {
-        var right = 0, left = 0
-        for a in state.analyses.values where a.isLandscape && a.rotationConfident {
-            if a.autoRotation == 90 { right += 1 }
-            if a.autoRotation == 270 { left += 1 }
-        }
-        return left > right ? 270 : 90
+    /// 横向きにスキャンされていたページか（1ページ目のカバーは除く）
+    func isSideways(_ page: Int) -> Bool {
+        page > 0 && state.analyses[page]?.isLandscape == true
+    }
+
+    /// 横向きのページの向きを反対にする（90° ↔ 270°）。自動判定を間違えたとき用
+    func flipSideways(_ page: Int) {
+        state.rotationOverrides[page] = (rotation(for: page) + 180) % 360
+        images[page] = nil
+        generation += 1
+        saveState()
+        scheduleLoading()
     }
 
     /// 表示中のページを時計回りに回す

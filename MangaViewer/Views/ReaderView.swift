@@ -204,6 +204,22 @@ private struct SpreadView: View {
         if pages.count == 1, let page = pages.first {
             if let image = model.images[page] {
                 ZoomableImageView(image: image, onTap: onTap)
+                    .overlay(alignment: .bottomTrailing) {
+                        if model.isSideways(page) {
+                            // 横向きだったページは、向きの判定を間違えることがあるので、すぐ直せるボタンを出す
+                            Button {
+                                model.flipSideways(page)
+                            } label: {
+                                Label("上下を反対に", systemImage: "arrow.triangle.2.circlepath")
+                                    .font(.caption)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(.ultraThinMaterial, in: Capsule())
+                            }
+                            .foregroundStyle(.white)
+                            .padding(16)
+                        }
+                    }
             } else {
                 placeholder
             }

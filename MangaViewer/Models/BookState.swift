@@ -13,7 +13,7 @@ struct NormRect: Codable, Equatable {
 /// 1ページを解析した結果（元の向きの画像に対する値）
 struct PageAnalysis: Codable, Equatable {
     /// 解析方法を変えたら上げる。古い結果は捨てて解析し直す
-    static let currentVersion = 2
+    static let currentVersion = 3
 
     var version = PageAnalysis.currentVersion
     /// 黒い縁だけを除いた範囲

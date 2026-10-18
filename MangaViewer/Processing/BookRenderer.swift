@@ -63,6 +63,9 @@ actor BookRenderer {
             color = nil
         case .auto:
             color = .init(black: analysis.black, white: analysis.white, grayscale: !analysis.isColor, gamma: settings.inkDarkness)
+        case .frontColorOnly:
+            let mayBeColor = index < ColorMode.frontColorPages && analysis.isColor
+            color = .init(black: analysis.black, white: analysis.white, grayscale: !mayBeColor, gamma: settings.inkDarkness)
         case .grayscale:
             color = .init(black: analysis.black, white: analysis.white, grayscale: true, gamma: settings.inkDarkness)
         case .color:

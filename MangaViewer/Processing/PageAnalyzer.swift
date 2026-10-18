@@ -135,7 +135,7 @@ enum PageAnalyzer {
         }
         let paperLo = percentile(0.88)
         let paperHi = percentile(0.995)
-        let inkHi = percentile(0.01)
+        let inkHi = percentile(0.03)  // インクが灰色寄り（中央 0.24）なので、少し広めに取って黒側を強めに引き伸ばす
 
         var paper = [0.0, 0.0, 0.0], paperN = 0.0
         var ink = [0.0, 0.0, 0.0], inkN = 0.0

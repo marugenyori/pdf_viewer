@@ -4,6 +4,9 @@ import Foundation
 enum ColorMode: String, Codable, CaseIterable, Identifiable {
     /// 紙の色を白に、インクを黒にそろえ、白黒のページは白黒に、カラーのページはカラーのまま
     case auto
+    /// 巻頭の数ページ（カバー・表紙・口絵）だけ自動で、あとは白黒にする。
+    /// 黄ばみの強い本で、白黒ページがカラーと判定されてしまうときのため
+    case frontColorOnly
     /// すべてのページを白黒にする
     case grayscale
     /// 紙と黒の色はそろえるが、白黒にはしない
@@ -13,9 +16,13 @@ enum ColorMode: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// frontColorOnly のとき、カラーのままにしてよいページ数（カバー・表紙・口絵）
+    static let frontColorPages = 8
+
     var label: String {
         switch self {
         case .auto: "自動（白黒ページは白黒に）"
+        case .frontColorOnly: "カラーは巻頭だけ（漫画向け）"
         case .grayscale: "すべて白黒"
         case .color: "色をそろえる（カラーのまま）"
         case .off: "補正しない"
@@ -49,7 +56,7 @@ struct CorrectionSettings: Codable, Equatable {
     /// 白い余白を詰める（既定はオフ。理由は上と同じ）
     var trimMargins = false
     /// 黒の濃さ（ガンマ）。1 でそのまま、大きいほど中間の灰色が濃くなる
-    var inkDarkness: Double = 1.1
+    var inkDarkness: Double = 1.2
     var direction: ReadingDirection = .rightToLeft
     /// 横向きのときに見開きで表示する
     var spreadInLandscape = true
