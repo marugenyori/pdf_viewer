@@ -11,3 +11,4 @@ ExportOptions.plist
 scan_samples/
 *.pdf
 rag_index.json
+__pycache__/
