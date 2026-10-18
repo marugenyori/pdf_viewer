@@ -13,7 +13,7 @@ struct NormRect: Codable, Equatable {
 /// 1ページを解析した結果（元の向きの画像に対する値）
 struct PageAnalysis: Codable, Equatable {
     /// 解析方法を変えたら上げる。古い結果は捨てて解析し直す
-    static let currentVersion = 3
+    static let currentVersion = 4
 
     var version = PageAnalysis.currentVersion
     /// 黒い縁だけを除いた範囲
@@ -32,6 +32,8 @@ struct PageAnalysis: Codable, Equatable {
     var autoRotation: Int?
     /// 回転の判定に自信があるか
     var rotationConfident = false
+    /// 紙詰まりなどで傾いた角度（度。見た目で時計回りが正）。0 なら傾いていない
+    var skew: Double? = nil
 }
 
 /// 1冊ごとに保存する状態
@@ -41,6 +43,23 @@ struct BookState: Codable {
     /// 手動で回したページ（ページ番号 → 時計回りの角度）
     var rotationOverrides: [Int: Int] = [:]
     var analyses: [Int: PageAnalysis] = [:]
+    /// しおりを付けたページ
+    var bookmarks: Set<Int> = []
+
+    init(settings: CorrectionSettings) {
+        self.settings = settings
+    }
+
+    /// 項目を足しても前に保存した状態（読んだ位置など）が読めるよう、無い項目は既定値にする
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        settings = try c.decode(CorrectionSettings.self, forKey: .settings)
+        lastPage = try c.decodeIfPresent(Int.self, forKey: .lastPage) ?? 0
+        rotationOverrides = try c.decodeIfPresent([Int: Int].self, forKey: .rotationOverrides) ?? [:]
+        // 解析結果は作り直せるので、読めなければ捨てる
+        analyses = (try? c.decodeIfPresent([Int: PageAnalysis].self, forKey: .analyses)) ?? [:]
+        bookmarks = try c.decodeIfPresent(Set<Int>.self, forKey: .bookmarks) ?? []
+    }
 }
 
 enum BookStateStore {

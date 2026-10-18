@@ -75,8 +75,67 @@ enum PageAnalyzer {
         let (black, white) = paperAndInk(px, in: edge)
         let isColor = detectColor(px, in: edge, black: black, white: white)
         let content = findContent(px, in: edge, black: black, white: white)
-        return PageAnalysis(edgeCrop: edge.normalized(in: px), contentCrop: content.normalized(in: px),
-                            black: black, white: white, isColor: isColor, isLandscape: isLandscape)
+        var result = PageAnalysis(edgeCrop: edge.normalized(in: px), contentCrop: content.normalized(in: px),
+                                  black: black, white: white, isColor: isColor, isLandscape: isLandscape)
+        result.skew = detectSkew(px, in: edge, black: black, white: white)
+        return result
+    }
+
+    // MARK: - 傾き
+
+    /// 紙詰まりなどで傾いたページの角度（度。見た目で時計回りが正）を求める。
+    /// 漫画のコマの枠線は水平・垂直なので、インクの点を少しずつ回して、行と列への集まり方が
+    /// いちばん鋭くなる角度を探す。斜めのコマ割りの多い絵を誤って回さないよう、
+    /// 1° 以上傾いていて、まっすぐのときよりはっきり集まる場合だけ傾きとみなす
+    private static func detectSkew(_ px: Pixels, in box: Box, black: [Double], white: [Double]) -> Double {
+        var xs: [Double] = []
+        var ys: [Double] = []
+        let step = max(1, Int((Double(box.width * box.height) / 40_000).squareRoot()))
+        for y in stride(from: box.top, to: box.bottom, by: step) {
+            for x in stride(from: box.left, to: box.right, by: step) {
+                let (r, g, b) = px.rgb(x, y)
+                let l = 0.299 * mapped(r, 0, black, white) + 0.587 * mapped(g, 1, black, white)
+                    + 0.114 * mapped(b, 2, black, white)
+                if l < 0.5 {
+                    xs.append(Double(x))
+                    ys.append(Double(y))
+                }
+            }
+        }
+        guard xs.count > 500 else { return 0 }
+        let size = Double(max(px.width, px.height)) * 1.5
+
+        func score(_ degrees: Double) -> Double {
+            let t = degrees * .pi / 180
+            let c = cos(t), s = sin(t)
+            let bins = Int(size * 2) + 2
+            var rows = [Int](repeating: 0, count: bins)
+            var cols = [Int](repeating: 0, count: bins)
+            for i in xs.indices {
+                let ry = ys[i] * c - xs[i] * s + size
+                let rx = xs[i] * c + ys[i] * s + size
+                rows[min(bins - 1, max(0, Int(ry)))] += 1
+                cols[min(bins - 1, max(0, Int(rx)))] += 1
+            }
+            var total = 0.0
+            for n in rows { total += Double(n * n) }
+            for n in cols { total += Double(n * n) }
+            return total
+        }
+
+        let straight = score(0)
+        var best = 0.0
+        var bestScore = straight
+        for degrees in stride(from: -20.0, through: 20.0, by: 1.0) where degrees != 0 {
+            let s = score(degrees)
+            if s > bestScore { best = degrees; bestScore = s }
+        }
+        for degrees in stride(from: best - 0.9, through: best + 0.9, by: 0.1) {
+            let s = score(degrees)
+            if s > bestScore { best = degrees; bestScore = s }
+        }
+        guard abs(best) >= 1.0, bestScore >= straight * 1.3 else { return 0 }
+        return (best * 10).rounded() / 10
     }
 
     /// 外側から内側へ、ほとんどが暗い行・列（スキャナの背景や影）を削る

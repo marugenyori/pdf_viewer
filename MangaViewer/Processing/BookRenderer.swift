@@ -37,6 +37,13 @@ actor BookRenderer {
         return result
     }
 
+    /// ページ一覧に並べる小さな画像（補正はせず、向きだけ直す）
+    func pageThumbnail(page index: Int, rotation: Int) -> UIImage? {
+        guard let raw = Self.renderPDF(document, index: index, maxPixel: 220) else { return nil }
+        let turned = ImageOps.rotate(raw, clockwise: rotation) ?? raw
+        return UIImage(cgImage: turned)
+    }
+
     /// 補正したページ画像を作る。bypass が true なら補正せずにそのまま
     func render(page index: Int, maxPixel: CGFloat, analysis: PageAnalysis?, rotation: Int,
                 settings: CorrectionSettings, bypass: Bool) -> UIImage? {
@@ -71,7 +78,8 @@ actor BookRenderer {
         case .color:
             color = .init(black: analysis.black, white: analysis.white, grayscale: false, gamma: settings.inkDarkness)
         }
-        guard let processed = ImageOps.process(raw, crop: crop, color: color, clockwise: rotation) else {
+        let skew = settings.deskew ? (analysis.skew ?? 0) : 0
+        guard let processed = ImageOps.process(raw, crop: crop, color: color, clockwise: rotation, skew: skew) else {
             return UIImage(cgImage: raw)
         }
         return UIImage(cgImage: processed)

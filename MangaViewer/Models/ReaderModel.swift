@@ -42,9 +42,60 @@ final class ReaderModel: ObservableObject {
     private var generation = 0
     private let maxPixel: CGFloat = 2000
 
-    init(book: Book, defaults: CorrectionSettings) {
+    /// 次の巻（読み終わりが近づいたら先にダウンロードしておく）
+    let nextBook: Book?
+    private var prefetchedNext = false
+    /// ページ一覧の小さな画像
+    @Published private(set) var pageThumbnails: [Int: UIImage] = [:]
+
+    init(book: Book, defaults: CorrectionSettings, nextBook: Book? = nil) {
         self.book = book
+        self.nextBook = nextBook
         self.state = BookStateStore.load(for: book, defaults: defaults)
+    }
+
+    // MARK: - 次の巻
+
+    /// 残り 20 ページを切ったら、次の巻を iCloud から裏でダウンロードしておく（Wi-Fi のときだけ）
+    private func prefetchNextIfNeeded() {
+        guard !prefetchedNext, let next = nextBook, pageCount > 0,
+              currentPage >= pageCount - 20, CoverDownloader.mayDownload else { return }
+        prefetchedNext = true
+        let url = next.url
+        Task.detached(priority: .background) {
+            try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        }
+    }
+
+    // MARK: - しおり
+
+    var isCurrentBookmarked: Bool {
+        currentPages.contains { state.bookmarks.contains($0) }
+    }
+
+    /// 表示中のページのしおりを付ける・外す
+    func toggleBookmark() {
+        if isCurrentBookmarked {
+            for page in currentPages { state.bookmarks.remove(page) }
+        } else {
+            state.bookmarks.insert(currentPage)
+        }
+        saveState()
+    }
+
+    // MARK: - ページ一覧
+
+    func loadPageThumbnail(_ page: Int) async {
+        guard pageThumbnails[page] == nil, let renderer else { return }
+        let rotation = rotation(for: page)
+        if let image = await renderer.pageThumbnail(page: page, rotation: rotation) {
+            pageThumbnails[page] = image
+        }
+    }
+
+    /// ページ一覧を閉じたら、小さな画像を捨ててメモリを空ける
+    func clearPageThumbnails() {
+        pageThumbnails = [:]
     }
 
     // MARK: - 開く・閉じる
@@ -144,6 +195,7 @@ final class ReaderModel: ObservableObject {
         guard pageCount > 0 else { return }
         state.lastPage = currentPage
         ProgressStore.shared.update(book: book, page: state.lastPage, pageCount: pageCount)
+        prefetchNextIfNeeded()
         scheduleLoading()
     }
 

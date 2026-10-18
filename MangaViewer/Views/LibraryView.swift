@@ -57,7 +57,7 @@ struct LibraryView: View {
                     .environmentObject(settings)
             }
             .fullScreenCover(item: $openBook) { book in
-                ReaderView(book: book, defaults: settings.defaults) {
+                ReaderView(book: book, defaults: settings.defaults, nextBook: library.nextBook(after: book)) {
                     // ダウンロードされた本の表紙を作るため、一覧を読み直す
                     Task { await library.refresh() }
                 }

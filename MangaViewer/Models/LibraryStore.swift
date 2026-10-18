@@ -117,6 +117,13 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    /// 同じフォルダで、名前順で次の本（次の巻）
+    func nextBook(after book: Book) -> Book? {
+        guard let index = books.firstIndex(where: { $0.id == book.id }), index + 1 < books.count else { return nil }
+        let next = books[index + 1]
+        return next.folder == book.folder ? next : nil
+    }
+
     // MARK: - ダウンロード
 
     /// iCloud にしかないファイルをダウンロードし、読める状態にする

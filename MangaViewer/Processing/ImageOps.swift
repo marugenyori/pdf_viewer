@@ -40,7 +40,8 @@ enum ImageOps {
     }
 
     /// 切り取り・色の補正・回転をまとめて行う
-    static func process(_ image: CGImage, crop: NormRect, color: ColorTransform?, clockwise angle: Int) -> CGImage? {
+    static func process(_ image: CGImage, crop: NormRect, color: ColorTransform?, clockwise angle: Int,
+                        skew: Double = 0) -> CGImage? {
         var ci = CIImage(cgImage: image)
         let W = Double(image.width), H = Double(image.height)
 
@@ -48,6 +49,18 @@ enum ImageOps {
             // CIImage は左下が原点
             let rect = CGRect(x: crop.x * W, y: (1 - crop.y - crop.h) * H, width: crop.w * W, height: crop.h * H).integral
             ci = ci.cropped(to: rect)
+        }
+
+        if abs(skew) >= 0.5 {
+            // 傾き（見た目で時計回り skew 度）を、中心のまわりに反時計回りへ戻す。
+            // 回して空いた角は紙の色で埋め、大きさは元のまま
+            let frame = ci.extent
+            let center = CGPoint(x: frame.midX, y: frame.midY)
+            let turn = CGAffineTransform(translationX: center.x, y: center.y)
+                .rotated(by: CGFloat(skew) * .pi / 180)
+                .translatedBy(x: -center.x, y: -center.y)
+            let paper = CIImage(color: CIColor(red: 1, green: 1, blue: 1)).cropped(to: frame)
+            ci = ci.transformed(by: turn).composited(over: paper).cropped(to: frame)
         }
 
         if let color {

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// 色の補正のしかた
 enum ColorMode: String, Codable, CaseIterable, Identifiable {
@@ -62,6 +63,37 @@ enum PageTurnStyle: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// 読書画面の背景（本の外側）の色
+enum ReaderBackground: String, Codable, CaseIterable, Identifiable {
+    case black
+    case gray
+    case cream
+    case white
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .black: "黒"
+        case .gray: "グレー"
+        case .cream: "生成り"
+        case .white: "白"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .black: Color.black
+        case .gray: Color(white: 0.22)
+        case .cream: Color(red: 0.93, green: 0.90, blue: 0.83)
+        case .white: Color.white
+        }
+    }
+
+    /// 背景が明るいか（読み込み中の表示などの色を変えるため）
+    var isLight: Bool { self == .cream || self == .white }
+}
+
 /// 1冊ごとの補正と表示の設定
 struct CorrectionSettings: Codable, Equatable {
     /// 横向き・逆さまのページを自動で回転する
@@ -82,6 +114,9 @@ struct CorrectionSettings: Codable, Equatable {
     var pageTurn: PageTurnStyle = .curl
     /// ページをめくったときに軽く振動させる
     var pageTurnHaptics = true
+    /// 紙詰まりなどで傾いたページをまっすぐにする
+    var deskew = true
+    var background: ReaderBackground = .black
 
     init() {}
 
@@ -99,6 +134,8 @@ struct CorrectionSettings: Codable, Equatable {
         coverAlone = try c.decodeIfPresent(Bool.self, forKey: .coverAlone) ?? d.coverAlone
         pageTurn = try c.decodeIfPresent(PageTurnStyle.self, forKey: .pageTurn) ?? d.pageTurn
         pageTurnHaptics = try c.decodeIfPresent(Bool.self, forKey: .pageTurnHaptics) ?? d.pageTurnHaptics
+        deskew = try c.decodeIfPresent(Bool.self, forKey: .deskew) ?? d.deskew
+        background = try c.decodeIfPresent(ReaderBackground.self, forKey: .background) ?? d.background
     }
 }
 

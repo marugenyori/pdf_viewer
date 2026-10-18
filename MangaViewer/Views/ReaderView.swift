@@ -7,24 +7,25 @@ struct ReaderView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showControls = false
     @State private var showSettings = false
+    @State private var showPageList = false
     @State private var sliderValue: Double = 0
     var onClose: () -> Void = {}
 
-    init(book: Book, defaults: CorrectionSettings, onClose: @escaping () -> Void = {}) {
-        _model = StateObject(wrappedValue: ReaderModel(book: book, defaults: defaults))
+    init(book: Book, defaults: CorrectionSettings, nextBook: Book? = nil, onClose: @escaping () -> Void = {}) {
+        _model = StateObject(wrappedValue: ReaderModel(book: book, defaults: defaults, nextBook: nextBook))
         self.onClose = onClose
     }
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                Color.black.ignoresSafeArea()
+                background.ignoresSafeArea()
 
                 switch model.phase {
                 case .loading(let message):
                     VStack(spacing: 12) {
-                        ProgressView().tint(.white)
-                        Text(message).font(.callout).foregroundStyle(.white)
+                        ProgressView().tint(foreground)
+                        Text(message).font(.callout).foregroundStyle(foreground)
                     }
                 case .failed(let message):
                     VStack(spacing: 16) {
@@ -33,7 +34,7 @@ struct ReaderView: View {
                         Button("閉じる") { close() }
                             .buttonStyle(.borderedProminent)
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(foreground)
                     .padding()
                 case .ready:
                     pager
@@ -53,6 +54,9 @@ struct ReaderView: View {
         .persistentSystemOverlays(showControls ? .automatic : .hidden)
         .task { await model.open() }
         .onDisappear { model.close() }
+        .sheet(isPresented: $showPageList) {
+            PageListView(model: model)
+        }
         .sheet(isPresented: $showSettings) {
             ReaderSettingsView(model: model)
                 .environmentObject(settings)
@@ -63,6 +67,15 @@ struct ReaderView: View {
     private var isFailedOrLoading: Bool {
         if case .ready = model.phase { return false }
         return true
+    }
+
+    private var background: Color {
+        model.state.settings.background.color
+    }
+
+    /// 背景の上に出す文字の色
+    private var foreground: Color {
+        model.state.settings.background.isLight ? .black : .white
     }
 
     private var isRightToLeft: Bool {
@@ -86,8 +99,8 @@ struct ReaderView: View {
             let aspect = model.spreadMode ? model.pageAspect * 2 : model.pageAspect
             let fit = Self.aspectFit(aspect: aspect, in: geo.size)
             ZStack {
-                // 本の外側（黒いところ）のタップも、めくる・メニューを出すに使う
-                Color.black
+                // 本の外側のタップも、めくる・メニューを出すに使う
+                background
                     .contentShape(Rectangle())
                     .onTapGesture { location in
                         handleTap(location.x / max(1, geo.size.width))
@@ -149,6 +162,14 @@ struct ReaderView: View {
                     .lineLimit(1)
                 Spacer()
                 if case .ready = model.phase {
+                    Button { model.toggleBookmark() } label: {
+                        Image(systemName: model.isCurrentBookmarked ? "bookmark.fill" : "bookmark")
+                            .font(.title3)
+                    }
+                    Button { showPageList = true } label: {
+                        Image(systemName: "square.grid.3x3")
+                            .font(.title3)
+                    }
                     rotateMenu
                     Button { showSettings = true } label: {
                         Image(systemName: "slider.horizontal.3").font(.title3)

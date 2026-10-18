@@ -80,9 +80,14 @@ struct CorrectionForm: View {
             Text("ページごとに紙の色を白に、インクの色を黒にそろえるので、黄ばみや濃さのばらつきが目立たなくなります。")
         }
 
-        Section("余白") {
+        Section {
+            Toggle("傾いたページをまっすぐにする", isOn: $settings.deskew)
             Toggle("黒い縁・影を消す", isOn: $settings.removeBlackEdges)
             Toggle("白い余白を詰める", isOn: $settings.trimMargins)
+        } header: {
+            Text("傾き・余白")
+        } footer: {
+            Text("紙詰まりなどで 1° 以上傾いたページを、コマの枠線をもとにまっすぐにします。空いた角は白で埋めます。")
         }
 
         Section("表示") {
@@ -94,6 +99,11 @@ struct CorrectionForm: View {
             Toggle("横向きのときは見開きで表示", isOn: $settings.spreadInLandscape)
             Toggle("見開きで表紙を単独で表示", isOn: $settings.coverAlone)
                 .disabled(!settings.spreadInLandscape)
+            Picker("背景", selection: $settings.background) {
+                ForEach(ReaderBackground.allCases) { background in
+                    Text(background.label).tag(background)
+                }
+            }
             Picker("めくり方", selection: $settings.pageTurn) {
                 ForEach(PageTurnStyle.allCases) { style in
                     Text(style.label).tag(style)
