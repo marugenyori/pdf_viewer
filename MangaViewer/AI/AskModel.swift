@@ -9,6 +9,8 @@ enum AskEngine: String, CaseIterable, Identifiable {
     case onDevice
     /// Apple Intelligence の ChatGPT（ショートカット経由）
     case chatGPT
+    /// Apple Intelligence のクラウド AI（Private Cloud Compute。ショートカット経由）
+    case appleCloud
 
     var id: String { rawValue }
 
@@ -18,6 +20,7 @@ enum AskEngine: String, CaseIterable, Identifiable {
         case .claude: "Claude"
         case .onDevice: "iPhone 内の AI"
         case .chatGPT: "ChatGPT（ショートカット経由）"
+        case .appleCloud: "Apple のクラウド AI（ショートカット経由）"
         }
     }
 
@@ -27,17 +30,19 @@ enum AskEngine: String, CaseIterable, Identifiable {
         case .auto: ClaudeClient.hasKey ? .claude : .onDevice
         case .claude: .claude
         case .onDevice: .onDevice
-        case .chatGPT: .chatGPT
+        case .chatGPT: .shortcut(.chatGPT)
+        case .appleCloud: .shortcut(.appleCloud)
         }
     }
 
     static let storageKey = "askEngine"
 }
 
-enum AskBackend {
+enum AskBackend: Equatable {
     case claude
     case onDevice
-    case chatGPT
+    /// ショートカット経由（ChatGPT か Apple のクラウド AI）
+    case shortcut(ShortcutAI)
 }
 
 /// 読書中の質問と答えのやりとり
@@ -85,10 +90,10 @@ final class AskModel: ObservableObject {
         }
 
         do {
-            if engine.backend == .chatGPT {
-                entries[index].engineName = "ChatGPT"
+            if case .shortcut(let ai) = engine.backend {
+                entries[index].engineName = ai.displayName
                 let prompt = "\(Self.instructions)\n\n\(context)\n\n（今開いているページの画像をクリップボードに入れてあります）\n\n質問: \(trimmed)"
-                entries[index].answer = try await ChatGPTBridge.shared.ask(prompt: prompt, image: images.first)
+                entries[index].answer = try await ChatGPTBridge.shared.ask(prompt: prompt, image: images.first, via: ai)
             } else if engine.backend == .claude {
                 entries[index].engineName = "Claude"
                 let jpegs = images.compactMap { Self.jpeg($0) }

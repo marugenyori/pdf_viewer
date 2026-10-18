@@ -5,11 +5,50 @@ import UIKit
 /// アプリから ChatGPT を直接呼ぶ方法は Apple が用意していないので、
 /// 持ち主が作ったショートカット（「モデルを使用」で ChatGPT を選んだもの）を x-callback-url で呼び、
 /// 答えを mangaviewer:// で受け取る。ページの画像はクリップボードに入れて渡す
+/// ショートカット経由で使う AI。どのモデルを使うかは、ショートカットの「モデルを使用」で決まる
+enum ShortcutAI: Equatable {
+    case chatGPT
+    /// Apple のクラウド AI（Private Cloud Compute）
+    case appleCloud
+
+    var displayName: String {
+        switch self {
+        case .chatGPT: "ChatGPT"
+        case .appleCloud: "Apple のクラウド AI"
+        }
+    }
+
+    var nameKey: String {
+        switch self {
+        case .chatGPT: "chatGPTShortcutName"
+        case .appleCloud: "appleCloudShortcutName"
+        }
+    }
+
+    var defaultName: String {
+        switch self {
+        case .chatGPT: "自炊ビューアに質問"
+        case .appleCloud: "自炊ビューアに質問（Apple）"
+        }
+    }
+
+    /// 設定で変えた名前（空なら既定の名前）
+    var name: String {
+        let saved = UserDefaults.standard.string(forKey: nameKey) ?? ""
+        return saved.isEmpty ? defaultName : saved
+    }
+}
+
+extension AskBackend {
+    var isShortcut: Bool {
+        if case .shortcut = self { return true }
+        return false
+    }
+}
+
 @MainActor
 final class ChatGPTBridge {
     static let shared = ChatGPTBridge()
-    static let shortcutNameKey = "chatGPTShortcutName"
-    static let defaultShortcutName = "自炊ビューアに質問"
 
     enum Failure: LocalizedError {
         case cannotOpen
@@ -25,7 +64,7 @@ final class ChatGPTBridge {
             case .cancelled:
                 "ショートカットが途中で止められました。"
             case .shortcutError(let message):
-                "ショートカットでエラーが出ました。\(message)\nショートカットの名前が設定と同じか、「モデルを使用」で ChatGPT を選んでいるか確かめてください。"
+                "ショートカットでエラーが出ました。\(message)\nショートカットの名前が設定と同じか、「モデルを使用」でモデルを選んでいるか確かめてください。"
             case .noAnswer:
                 "答えを受け取れませんでした。ショートカットの最後に「出力を停止」を置き、「応答」を出力するようにしてください。"
             case .busy:
@@ -36,13 +75,8 @@ final class ChatGPTBridge {
 
     private var waiting: CheckedContinuation<String, Error>?
 
-    var shortcutName: String {
-        let name = UserDefaults.standard.string(forKey: Self.shortcutNameKey) ?? ""
-        return name.isEmpty ? Self.defaultShortcutName : name
-    }
-
     /// ショートカットを呼び、答えが返ってくるまで待つ
-    func ask(prompt: String, image: UIImage?) async throws -> String {
+    func ask(prompt: String, image: UIImage?, via ai: ShortcutAI) async throws -> String {
         guard waiting == nil else { throw Failure.busy }
         if let image {
             UIPasteboard.general.image = image
@@ -55,7 +89,7 @@ final class ChatGPTBridge {
         components.host = "x-callback-url"
         components.path = "/run-shortcut"
         components.queryItems = [
-            URLQueryItem(name: "name", value: shortcutName),
+            URLQueryItem(name: "name", value: ai.name),
             URLQueryItem(name: "input", value: "text"),
             URLQueryItem(name: "text", value: prompt),
             URLQueryItem(name: "x-success", value: "mangaviewer://chatgpt/success"),
