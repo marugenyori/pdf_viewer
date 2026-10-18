@@ -61,6 +61,7 @@
 - **ページ一覧・しおり**：`PageListView`。しおりは `BookState.bookmarks`
 - **背景色**：`ReaderBackground`（黒・グレー・生成り・白）
 - **傾きの補正**：`PageAnalyzer.detectSkew`。インクの点を -20〜20° で回し、行・列への集まり方が最も鋭い角度を探す。1° 以上かつ 0° より 1.3 倍以上鋭いときだけ補正（斜めのコマ割りを誤って回さないため）
+- **質問（AI）**：`MangaViewer/AI/`。読書画面の吹き出しボタン。Claude（`ClaudeClient`：Messages API を HTTP で直接。`claude-opus-5-5`、effort low、`fallbacks: "default"`、ページ画像を長辺 1568px の JPEG で添付。キーはキーチェーン）と、iPhone 内の AI（`OnDeviceAI`：FoundationModels、iOS 26 以降。画像は読めないので Vision でページの文字を読み取って渡す）。質問は毎回1回きりのリクエストにし、それまでのやりとりは文章として添える（過去の応答を送り直さないので、思考ブロックの扱いを気にしなくてよい）
 - 保存する構造体（`BookState`、`CorrectionSettings`）に項目を足すときは、`init(from:)` に `decodeIfPresent` を足す。そうしないと前の保存データが読めず、読んだ位置が消える
 
 ## ビルドと配信

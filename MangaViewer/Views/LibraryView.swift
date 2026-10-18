@@ -40,7 +40,7 @@ struct LibraryView: View {
                             Label("一覧を更新", systemImage: "arrow.clockwise")
                         }
                         Button { showSettings = true } label: {
-                            Label("補正の既定値", systemImage: "slider.horizontal.3")
+                            Label("設定", systemImage: "slider.horizontal.3")
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
@@ -176,6 +176,7 @@ struct DefaultSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 CorrectionForm(settings: $settings.defaults)
+                AskSettingsSection()
                 Section {
                     Toggle("モバイル通信でも表紙をダウンロード", isOn: $coverOnCellular)
                 } header: {
@@ -184,7 +185,7 @@ struct DefaultSettingsView: View {
                     Text("iCloud にしかない本は、表紙を作るために1冊まるごと（約 70MB）ダウンロードし、作り終えたら iPhone から消します（iCloud には残ります）。ふだんは Wi-Fi のときだけ行います。")
                 }
             }
-            .navigationTitle("補正の既定値")
+            .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

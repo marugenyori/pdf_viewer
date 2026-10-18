@@ -8,6 +8,8 @@ struct ReaderView: View {
     @State private var showControls = false
     @State private var showSettings = false
     @State private var showPageList = false
+    @State private var showAsk = false
+    @StateObject private var ask = AskModel()
     @State private var sliderValue: Double = 0
     var onClose: () -> Void = {}
 
@@ -54,6 +56,9 @@ struct ReaderView: View {
         .persistentSystemOverlays(showControls ? .automatic : .hidden)
         .task { await model.open() }
         .onDisappear { model.close() }
+        .sheet(isPresented: $showAsk) {
+            AskView(reader: model, ask: ask)
+        }
         .sheet(isPresented: $showPageList) {
             PageListView(model: model)
         }
@@ -164,6 +169,10 @@ struct ReaderView: View {
                 if case .ready = model.phase {
                     Button { model.toggleBookmark() } label: {
                         Image(systemName: model.isCurrentBookmarked ? "bookmark.fill" : "bookmark")
+                            .font(.title3)
+                    }
+                    Button { showAsk = true } label: {
+                        Image(systemName: "questionmark.bubble")
                             .font(.title3)
                     }
                     Button { showPageList = true } label: {
