@@ -5,6 +5,7 @@ import UIKit
 struct ZoomableImageView: UIViewRepresentable {
     let image: UIImage
     var onTap: (CGFloat) -> Void
+    var onZoom: ((Bool) -> Void)? = nil
 
     func makeUIView(context: Context) -> ZoomScrollView {
         ZoomScrollView()
@@ -12,6 +13,7 @@ struct ZoomableImageView: UIViewRepresentable {
 
     func updateUIView(_ view: ZoomScrollView, context: Context) {
         view.onTap = onTap
+        view.onZoom = onZoom
         if view.imageView.image !== image {
             view.imageView.image = image
             view.setZoomScale(1, animated: false)
@@ -22,6 +24,8 @@ struct ZoomableImageView: UIViewRepresentable {
 final class ZoomScrollView: UIScrollView, UIScrollViewDelegate {
     let imageView = UIImageView()
     var onTap: ((CGFloat) -> Void)?
+    var onZoom: ((Bool) -> Void)?
+    private var isZoomed = false
     private var lastSize: CGSize = .zero
 
     init() {
@@ -60,6 +64,14 @@ final class ZoomScrollView: UIScrollView, UIScrollViewDelegate {
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         imageView
+    }
+
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        let zoomed = zoomScale > 1.01
+        if zoomed != isZoomed {
+            isZoomed = zoomed
+            onZoom?(zoomed)
+        }
     }
 
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {

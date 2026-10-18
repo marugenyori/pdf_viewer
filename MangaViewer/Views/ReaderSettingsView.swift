@@ -94,6 +94,12 @@ struct CorrectionForm: View {
             Toggle("横向きのときは見開きで表示", isOn: $settings.spreadInLandscape)
             Toggle("見開きで表紙を単独で表示", isOn: $settings.coverAlone)
                 .disabled(!settings.spreadInLandscape)
+            Picker("めくり方", selection: $settings.pageTurn) {
+                ForEach(PageTurnStyle.allCases) { style in
+                    Text(style.label).tag(style)
+                }
+            }
+            Toggle("めくるときに軽く振動", isOn: $settings.pageTurnHaptics)
         }
     }
 }

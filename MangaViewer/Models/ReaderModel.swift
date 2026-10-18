@@ -17,8 +17,15 @@ final class ReaderModel: ObservableObject {
     @Published private(set) var pageCount = 0
     /// 表示中の「見開き（または1ページ）」の番号
     @Published var spreadIndex = 0 {
-        didSet { spreadChanged() }
+        didSet {
+            // 1枚めくったときだけ、紙をめくった手応えとして軽く振動させる
+            if abs(spreadIndex - oldValue) == 1, state.settings.pageTurnHaptics {
+                turnFeedback.impactOccurred(intensity: 0.5)
+            }
+            spreadChanged()
+        }
     }
+    private let turnFeedback = UIImpactFeedbackGenerator(style: .soft)
     /// 補正前の画像を表示する（比べるため）
     @Published var bypass = false {
         didSet { if bypass != oldValue { invalidateAll() } }

@@ -45,6 +45,23 @@ enum ReadingDirection: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// ページのめくり方
+enum PageTurnStyle: String, Codable, CaseIterable, Identifiable {
+    /// 紙の端がめくれる（ブックアプリのような動き）
+    case curl
+    /// 横に滑る
+    case slide
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .curl: "紙をめくる"
+        case .slide: "スライド"
+        }
+    }
+}
+
 /// 1冊ごとの補正と表示の設定
 struct CorrectionSettings: Codable, Equatable {
     /// 横向き・逆さまのページを自動で回転する
@@ -62,6 +79,27 @@ struct CorrectionSettings: Codable, Equatable {
     var spreadInLandscape = true
     /// 見開きのとき、1ページ目（表紙）だけを単独で表示する
     var coverAlone = true
+    var pageTurn: PageTurnStyle = .curl
+    /// ページをめくったときに軽く振動させる
+    var pageTurnHaptics = true
+
+    init() {}
+
+    /// 項目を足しても、前に保存した設定が読めるよう、無い項目は既定値にする
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = CorrectionSettings()
+        autoRotate = try c.decodeIfPresent(Bool.self, forKey: .autoRotate) ?? d.autoRotate
+        colorMode = try c.decodeIfPresent(ColorMode.self, forKey: .colorMode) ?? d.colorMode
+        removeBlackEdges = try c.decodeIfPresent(Bool.self, forKey: .removeBlackEdges) ?? d.removeBlackEdges
+        trimMargins = try c.decodeIfPresent(Bool.self, forKey: .trimMargins) ?? d.trimMargins
+        inkDarkness = try c.decodeIfPresent(Double.self, forKey: .inkDarkness) ?? d.inkDarkness
+        direction = try c.decodeIfPresent(ReadingDirection.self, forKey: .direction) ?? d.direction
+        spreadInLandscape = try c.decodeIfPresent(Bool.self, forKey: .spreadInLandscape) ?? d.spreadInLandscape
+        coverAlone = try c.decodeIfPresent(Bool.self, forKey: .coverAlone) ?? d.coverAlone
+        pageTurn = try c.decodeIfPresent(PageTurnStyle.self, forKey: .pageTurn) ?? d.pageTurn
+        pageTurnHaptics = try c.decodeIfPresent(Bool.self, forKey: .pageTurnHaptics) ?? d.pageTurnHaptics
+    }
 }
 
 /// アプリ全体の既定値（新しく開いた本に使う）

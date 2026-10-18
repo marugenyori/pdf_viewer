@@ -71,7 +71,18 @@ struct ReaderView: View {
 
     // MARK: - ページめくり
 
+    @ViewBuilder
     private var pager: some View {
+        if model.state.settings.pageTurn == .curl {
+            PageCurlView(model: model, rightToLeft: isRightToLeft, onTap: handleTap)
+                // 綴じ目の位置は作るときにしか決められないので、読む方向を変えたら作り直す
+                .id(model.state.settings.direction)
+        } else {
+            slidePager
+        }
+    }
+
+    private var slidePager: some View {
         let spreads = model.spreads
         return TabView(selection: $model.spreadIndex) {
             ForEach(spreads.indices, id: \.self) { index in
@@ -194,16 +205,18 @@ struct ReaderView: View {
 }
 
 /// 1ページ、または見開きの2ページ
-private struct SpreadView: View {
+struct SpreadView: View {
     @ObservedObject var model: ReaderModel
     let pages: [Int]
     let rightToLeft: Bool
     let onTap: (CGFloat) -> Void
+    /// 拡大したか（紙をめくる動きのとき、拡大中はめくれないようにするため）
+    var onZoom: ((Bool) -> Void)? = nil
 
     var body: some View {
         if pages.count == 1, let page = pages.first {
             if let image = model.images[page] {
-                ZoomableImageView(image: image, onTap: onTap)
+                ZoomableImageView(image: image, onTap: onTap, onZoom: onZoom)
                     .overlay(alignment: .bottomTrailing) {
                         if model.isSideways(page) {
                             // 横向きだったページは、向きの判定を間違えることがあるので、すぐ直せるボタンを出す
@@ -257,7 +270,7 @@ private struct SpreadView: View {
 
     private var placeholder: some View {
         ProgressView()
-            .tint(.white)
+            .tint(.gray)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
