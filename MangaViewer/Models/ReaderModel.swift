@@ -31,6 +31,10 @@ final class ReaderModel: ObservableObject {
         didSet { if bypass != oldValue { invalidateAll() } }
     }
     @Published private(set) var isLandscape = false
+    /// 1ページの縦横比（幅 ÷ 高さ）。紙をめくるときの紙の大きさに使う。
+    /// 最初は新書判（約 303×497pt）とし、2ページ目以降の縦長ページが表示されたらその比に合わせる
+    @Published private(set) var pageAspect: CGFloat = 303.0 / 497.0
+    private var pageAspectMeasured = false
 
     private var renderer: BookRenderer?
     private var loadTask: Task<Void, Never>?
@@ -262,5 +266,10 @@ final class ReaderModel: ObservableObject {
                                           settings: settings, bypass: bypass)
         guard generation == self.generation, let image else { return }
         images[page] = image
+        // 1ページ目（カバー全体）と横長のページは、本の大きさの目安にしない
+        if !pageAspectMeasured, page > 0, image.size.height > 0, image.size.width < image.size.height {
+            pageAspectMeasured = true
+            pageAspect = image.size.width / image.size.height
+        }
     }
 }

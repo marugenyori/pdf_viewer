@@ -74,12 +74,39 @@ struct ReaderView: View {
     @ViewBuilder
     private var pager: some View {
         if model.state.settings.pageTurn == .curl {
-            PageCurlView(model: model, rightToLeft: isRightToLeft, onTap: handleTap)
-                // 綴じ目の位置は作るときにしか決められないので、読む方向を変えたら作り直す
-                .id(model.state.settings.direction)
+            curlPager
         } else {
             slidePager
         }
+    }
+
+    /// 紙をめくる動き。めくれる紙は画面全体ではなく、本のページの大きさだけにする
+    private var curlPager: some View {
+        GeometryReader { geo in
+            let aspect = model.spreadMode ? model.pageAspect * 2 : model.pageAspect
+            let fit = Self.aspectFit(aspect: aspect, in: geo.size)
+            ZStack {
+                // 本の外側（黒いところ）のタップも、めくる・メニューを出すに使う
+                Color.black
+                    .contentShape(Rectangle())
+                    .onTapGesture { location in
+                        handleTap(location.x / max(1, geo.size.width))
+                    }
+                PageCurlView(model: model, rightToLeft: isRightToLeft, onTap: handleTap)
+                    // 綴じ目の位置は作るときにしか決められないので、読む方向を変えたら作り直す
+                    .id(model.state.settings.direction)
+                    .frame(width: fit.width, height: fit.height)
+            }
+        }
+    }
+
+    /// 縦横比 aspect（幅 ÷ 高さ）の長方形を、size の中にいっぱいに収めた大きさ
+    private static func aspectFit(aspect: CGFloat, in size: CGSize) -> CGSize {
+        guard aspect > 0, size.width > 0, size.height > 0 else { return size }
+        if size.width / size.height > aspect {
+            return CGSize(width: size.height * aspect, height: size.height)
+        }
+        return CGSize(width: size.width, height: size.width / aspect)
     }
 
     private var slidePager: some View {
