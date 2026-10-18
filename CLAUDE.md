@@ -23,7 +23,7 @@
 | `MangaViewer/App/` | `@main` の App |
 | `MangaViewer/Models/` | 本棚（`LibraryStore`）、本ごとの状態の保存（`BookState`）、読書画面の状態（`ReaderModel`）、設定 |
 | `MangaViewer/Processing/` | PDF の描画（`BookRenderer`）、ページの解析（`PageAnalyzer`）、補正（`ImageOps`）、表紙（`ThumbnailStore`） |
-| `MangaViewer/Views/` | 本棚、読書画面、拡大表示、設定。ページ送りは「紙をめくる」（`PageCurlView`、UIPageViewController の pageCurl。右綴じは綴じ目を右に置く）と「スライド」（TabView）の2通り |
+| `MangaViewer/Views/` | 本棚（`FolderShelfView`：フォルダの階層どおりにたどる。検索はそのフォルダ以下をまとめて表示）、読書画面、拡大表示、設定。ページ送りは「紙をめくる」（`PageCurlView`、UIPageViewController の pageCurl。右綴じは綴じ目を右に置く）と「スライド」（TabView）の2通り |
 | `MangaViewer.xcodeproj/` | フォルダ同期方式。`MangaViewer/` にファイルを置くだけでビルド対象になる |
 | `.github/workflows/ios-build.yml` | ビルド確認と TestFlight 配信 |
 | `tools/survey_scans.py` | 本のフォルダを調べて、補正の数値をまとめる（PC で実行。`PageAnalyzer` と同じしきい値） |

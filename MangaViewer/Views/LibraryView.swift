@@ -9,9 +9,6 @@ struct LibraryView: View {
     @State private var pickingFolder = false
     @State private var showSettings = false
     @State private var openBook: Book?
-    @State private var search = ""
-
-    private let columns = [GridItem(.adaptive(minimum: 104, maximum: 160), spacing: 16)]
 
     var body: some View {
         NavigationStack {
@@ -26,10 +23,13 @@ struct LibraryView: View {
                                                description: Text("選んだフォルダの中に PDF がありません。右上の … から、ほかのフォルダを選べます。"))
                     }
                 } else {
-                    shelf
+                    FolderShelfView(path: "") { openBook = $0 }
                 }
             }
             .navigationTitle("本棚")
+            .navigationDestination(for: FolderRoute.self) { route in
+                FolderShelfView(path: route.path) { openBook = $0 }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -82,7 +82,7 @@ struct LibraryView: View {
                 .foregroundStyle(.tint)
             Text("自炊した本のフォルダを選んでください")
                 .font(.headline)
-            Text("「ファイル」の画面が開きます。\niCloud Drive → ScanSnap Home を開いて、右上の「開く」を押してください。中のサブフォルダの PDF もまとめて表示します。")
+            Text("「ファイル」の画面が開きます。\niCloud Drive → ScanSnap Home を開いて、右上の「開く」を押してください。中のサブフォルダは、そのままフォルダとして並びます。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -98,74 +98,6 @@ struct LibraryView: View {
         .padding(32)
     }
 
-    // MARK: - 本棚
-
-    private var filteredBooks: [Book] {
-        let query = search.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return library.books }
-        return library.books.filter {
-            $0.title.localizedCaseInsensitiveContains(query) || $0.folder.localizedCaseInsensitiveContains(query)
-        }
-    }
-
-    /// サブフォルダごとにまとめる（並びは LibraryStore で整えた順）
-    private struct ShelfSection: Identifiable {
-        let folder: String
-        var books: [Book]
-        var id: String { folder }
-    }
-
-    private var sections: [ShelfSection] {
-        var result: [ShelfSection] = []
-        for book in filteredBooks {
-            if let last = result.last, last.folder == book.folder {
-                result[result.count - 1].books.append(book)
-            } else {
-                result.append(ShelfSection(folder: book.folder, books: [book]))
-            }
-        }
-        return result
-    }
-
-    private var shelf: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 20, pinnedViews: [.sectionHeaders]) {
-                ForEach(sections) { section in
-                    Section {
-                        ForEach(section.books) { book in
-                            Button {
-                                openBook = book
-                            } label: {
-                                BookCell(book: book, progress: progress.entry(for: book))
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button {
-                                    Task {
-                                        await ThumbnailStore.shared.invalidate(book)
-                                        await library.refresh()
-                                    }
-                                } label: {
-                                    Label("表紙を作り直す", systemImage: "photo")
-                                }
-                            }
-                        }
-                    } header: {
-                        if !section.folder.isEmpty {
-                            Text(section.folder)
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.vertical, 6)
-                                .background(.bar)
-                        }
-                    }
-                }
-            }
-            .padding()
-        }
-        .searchable(text: $search, prompt: "タイトルで探す")
-        .refreshable { await library.refresh() }
-    }
 }
 
 /// 本棚の1冊
