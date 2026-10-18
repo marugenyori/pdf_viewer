@@ -27,7 +27,7 @@
 | `MangaViewer.xcodeproj/` | フォルダ同期方式。`MangaViewer/` にファイルを置くだけでビルド対象になる |
 | `.github/workflows/ios-build.yml` | ビルド確認と TestFlight 配信 |
 | `tools/survey_scans.py` | 本のフォルダを調べて、補正の数値をまとめる（PC で実行。`PageAnalyzer` と同じしきい値） |
-| `docs/HANDOFF.md` | 引き継ぎ書（未確認の前提と、自宅の PC でやること） |
+| `docs/HANDOFF.md` | PC の Claude への依頼：自炊 PDF の中身を調べて報告書にする |
 
 - iOS 17 以上、Swift 5 モード、外部ライブラリなし（PDF は `CGPDFDocument`、補正は Core Image、向きの判定は Vision）
 
