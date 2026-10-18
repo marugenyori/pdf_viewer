@@ -6,3 +6,7 @@ xcuserdata/
 .DS_Store
 *.p8
 ExportOptions.plist
+
+# 見本ページ（リポジトリに入れない）
+scan_samples/
+*.pdf

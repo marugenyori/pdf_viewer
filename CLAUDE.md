@@ -26,6 +26,8 @@
 | `MangaViewer/Views/` | 本棚、読書画面、拡大表示、設定 |
 | `MangaViewer.xcodeproj/` | フォルダ同期方式。`MangaViewer/` にファイルを置くだけでビルド対象になる |
 | `.github/workflows/ios-build.yml` | ビルド確認と TestFlight 配信 |
+| `tools/survey_scans.py` | 本のフォルダを調べて、補正の数値をまとめる（PC で実行。`PageAnalyzer` と同じしきい値） |
+| `docs/HANDOFF.md` | 引き継ぎ書（未確認の前提と、自宅の PC でやること） |
 
 - iOS 17 以上、Swift 5 モード、外部ライブラリなし（PDF は `CGPDFDocument`、補正は Core Image、向きの判定は Vision）
 
@@ -54,4 +56,5 @@
 
 - **複数行文字列（`"""`）**：中の行が、閉じる `"""` より左に出るとコンパイルエラーになる
 - **排他アクセスエラー**：配列を書き換えているクロージャの中から、同じ構造体・クラスのプロパティを読まない（`PageAnalyzer.Pixels` の init はローカル変数で組み立ててから代入している）
+- PDF や見本画像はリポジトリに入れない（市販の漫画のスキャンで、著作物のため）。入れてよいのは `docs/scan_survey.*` の数値だけ
 - 文字サイズは固定値（`.system(size:)`）を避け、`.body` や `.caption` などを使う
