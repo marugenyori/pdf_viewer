@@ -11,6 +11,19 @@ actor ThumbnailStore {
     private static func fileName(for book: Book) -> String {
         "\(book.key)-v\(version).jpg"
     }
+
+    /// 1ページ目をそのまま（切り出す前の全体）保存しておく場所。
+    /// 表紙の切り出し方を変えても、iCloud から本を落とし直さずに作り直せる
+    private static func rawPageURL(for book: Book) -> URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let dir = base.appendingPathComponent("FirstPages", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent(book.key + ".jpg")
+    }
+
+    private static func cachedRawPage(for book: Book) -> CGImage? {
+        UIImage(contentsOfFile: rawPageURL(for: book).path)?.cgImage
+    }
     /// 作成中の表紙（同じ本を二重にダウンロードしないため）
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
 
@@ -49,6 +62,9 @@ actor ThumbnailStore {
 
     /// 表紙を作る。iCloud にしかない本は一時的にダウンロードし、作り終えたら iPhone から消す
     private static func makeCover(for book: Book, settings: CorrectionSettings) async -> UIImage? {
+        if let raw = cachedRawPage(for: book) {
+            return cover(from: raw, settings: settings)
+        }
         if CoverDownloader.isLocal(book.url) {
             return render(book: book, settings: settings)
         }
@@ -59,8 +75,17 @@ actor ThumbnailStore {
     }
 
     private static func render(book: Book, settings: CorrectionSettings) -> UIImage? {
+        // カバー全体は横長なので、表表紙を切り出しても粗くならないよう大きめに描く
         guard let document = CGPDFDocument(book.url as CFURL), document.numberOfPages > 0,
-              let raw = BookRenderer.renderPDF(document, index: 0, maxPixel: 600) else { return nil }
+              let raw = BookRenderer.renderPDF(document, index: 0, maxPixel: 1600) else { return nil }
+        if let data = UIImage(cgImage: raw).jpegData(compressionQuality: 0.85) {
+            try? data.write(to: rawPageURL(for: book), options: .atomic)
+        }
+        return cover(from: raw, settings: settings)
+    }
+
+    /// 1ページ目の画像から、本棚の表紙を作る
+    private static func cover(from raw: CGImage, settings: CorrectionSettings) -> UIImage? {
         let analysis = PageAnalyzer.analyze(raw)
         var crop = NormRect.full
         if settings.trimMargins { crop = analysis.contentCrop } else if settings.removeBlackEdges { crop = analysis.edgeCrop }
