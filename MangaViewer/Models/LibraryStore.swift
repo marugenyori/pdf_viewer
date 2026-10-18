@@ -76,7 +76,7 @@ final class LibraryStore: ObservableObject {
     nonisolated private static func scan(root: URL) -> (books: [Book], indexes: [RagIndexFile]) {
         let keys: [URLResourceKey] = [.isDirectoryKey, .fileSizeKey, .ubiquitousItemDownloadingStatusKey]
         guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys, options: []) else {
-            return []
+            return ([], [])
         }
         let rootPath = root.standardizedFileURL.path
         var result: [Book] = []
