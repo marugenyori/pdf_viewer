@@ -43,14 +43,13 @@ actor ThumbnailStore {
 
     /// 表紙を作る。iCloud にしかない本は一時的にダウンロードし、作り終えたら iPhone から消す
     private static func makeCover(for book: Book, settings: CorrectionSettings) async -> UIImage? {
-        let wasLocal = CoverDownloader.isLocal(book.url)
-        if !wasLocal {
-            guard CoverDownloader.mayDownload, await CoverDownloader.download(book.url) else { return nil }
+        if CoverDownloader.isLocal(book.url) {
+            return render(book: book, settings: settings)
         }
-        defer {
-            if !wasLocal { CoverDownloader.evict(book) }
+        guard CoverDownloader.mayDownload else { return nil }
+        return await CoverDownloader.withTemporaryDownload(book) {
+            render(book: book, settings: settings)
         }
-        return render(book: book, settings: settings)
     }
 
     private static func render(book: Book, settings: CorrectionSettings) -> UIImage? {

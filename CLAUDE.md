@@ -14,7 +14,7 @@
 
 - Windows では `C:\Users\yfb31\Documents\icloud同期フォルダ\iCloudDrive\ScanSnap Home`。iPhone では「ファイル」→ iCloud Drive → ScanSnap Home
 - 1冊＝1つの PDF。スキャンの質が低く、ページが横向き・逆さま、色や濃さがページごとにばらばら、黒い縁や余白が残っている
-- 表紙（本棚の画像）は、iCloud にしかない本でも自動で作る。iCloud は一部だけ取り出せないので、1冊まるごと落として表紙を作り、`evictUbiquitousItem` で iPhone から消す（`CoverDownloader`。1冊ずつ、既定は Wi-Fi のときだけ。読書中の本は消さない）
+- 表紙（本棚の画像）は、iCloud にしかない本でも自動で作る。iCloud は一部だけ取り出せないので、1冊まるごと落として表紙を作り、`evictUbiquitousItem` で iPhone から消す（`CoverDownloader`。「落とす→表紙を作る→消す」を1冊ずつ終えてから次へ進むので、iPhone に残るのは常に1冊まで。既定は Wi-Fi のときだけ。読書中の本は消さない）
 - アプリはこのフォルダをファイル選択画面で選んでもらい、ブックマーク（security-scoped bookmark）で覚える。PDF はコピーせず、その場で読む。iCloud にしかないファイルは開くときに `NSFileCoordinator` でダウンロードする
 
 ## 構成

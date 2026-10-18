@@ -3,7 +3,8 @@ import Network
 
 /// iCloud にしかない本の表紙を作るため、PDF を一時的にダウンロードする。
 /// iCloud はファイルの一部だけを取り出せないので、1冊まるごと（約 70MB）落として表紙を作り、
-/// 作り終えたら iPhone から消して（iCloud には残る）容量を空ける。ダウンロードは1冊ずつ順番に行う
+/// 作り終えたら iPhone から消して（iCloud には残る）容量を空ける。
+/// 「ダウンロード → 表紙を作る → 消す」を1冊ずつ終えてから次の本に進むので、iPhone に残るのは常に1冊まで
 enum CoverDownloader {
     /// モバイル通信でも表紙のためにダウンロードするか（設定画面で変える）
     static let cellularKey = "coverDownloadOnCellular"
@@ -23,23 +24,41 @@ enum CoverDownloader {
             && (NetworkMonitor.shared.isUnmetered || UserDefaults.standard.bool(forKey: cellularKey))
     }
 
-    /// ダウンロードが終わるまで待つ（1冊ずつ）
-    static func download(_ url: URL) async -> Bool {
+    /// 本を一時的にダウンロードして body を実行し、終わったら iPhone から消す。
+    /// 前の本の「ダウンロード → body → 消す」がすべて終わってから、次の本に取りかかる
+    static func withTemporaryDownload<T>(_ book: Book, _ body: @escaping () -> T?) async -> T? {
         await withCheckedContinuation { continuation in
             queue.async {
-                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-                var readable = false
-                var error: NSError?
-                NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &error) { coordinated in
-                    readable = FileManager.default.isReadableFile(atPath: coordinated.path)
+                // 順番を待つあいだに読書画面で開かれていたら、ダウンロードも削除もしない
+                if isLocal(book.url) {
+                    continuation.resume(returning: body())
+                    return
                 }
-                continuation.resume(returning: error == nil && readable)
+                // 順番を待つあいだに Wi-Fi が切れていたら、やめる
+                guard mayDownload, downloadNow(book.url) else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let result = body()
+                evict(book)
+                continuation.resume(returning: result)
             }
         }
     }
 
+    /// ダウンロードが終わるまで待つ
+    private static func downloadNow(_ url: URL) -> Bool {
+        try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        var readable = false
+        var error: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: url, options: [], error: &error) { coordinated in
+            readable = FileManager.default.isReadableFile(atPath: coordinated.path)
+        }
+        return error == nil && readable
+    }
+
     /// 表紙を作り終えたファイルを iPhone から消す（読書中の本は消さない）
-    static func evict(_ book: Book) {
+    private static func evict(_ book: Book) {
         guard !OpenBooks.shared.contains(book.key) else { return }
         try? FileManager.default.evictUbiquitousItem(at: book.url)
     }
