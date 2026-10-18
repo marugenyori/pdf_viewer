@@ -95,7 +95,16 @@ final class AskModel: ObservableObject {
                 // ショートカット経由の AI には、AI 向けの指示文（「あなたは〜です」）を付けない。
                 // Apple Intelligence の ChatGPT が「応答を提供できません」と断ったため（実機で確認）。ふつうの質問の形にする
                 let pageLabelText = pages.count > 1 ? "\(label) ページ目（見開き）" : "\(label) ページ目"
-                let prompt = "『\(book.title)』の \(pageLabelText)を読んでいます。\(trimmed)（日本語で短めに答えてください。この先の展開には触れないでください）"
+                // 続けての質問（「いい人？」など）が分かるよう、直前のやりとりを普通の文として添える
+                let recent = entries.dropLast().suffix(2).compactMap { entry -> String? in
+                    guard let answer = entry.answer else { return nil }
+                    return "わたし「\(entry.question)」→ あなた「\(answer.prefix(150))」"
+                }.joined(separator: "\n")
+                var prompt = "『\(book.title)』の \(pageLabelText)を読んでいます。"
+                if !recent.isEmpty {
+                    prompt += "\nここまでのやりとり:\n\(recent)\n続けての質問です。"
+                }
+                prompt += "\(trimmed)（日本語で短めに答えてください。この先の展開には触れないでください。分からないことは分からないと答えてください）"
                 entries[index].answer = try await ChatGPTBridge.shared.ask(prompt: prompt, image: images.first, via: ai)
             } else if engine.backend == .claude {
                 entries[index].engineName = "Claude"
