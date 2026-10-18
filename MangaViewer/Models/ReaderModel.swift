@@ -139,14 +139,16 @@ final class ReaderModel: ObservableObject {
     /// 実際に使う回転角（時計回り）
     func rotation(for page: Int) -> Int {
         if let manual = state.rotationOverrides[page] { return manual }
-        guard state.settings.autoRotate, let analysis = state.analyses[page] else { return 0 }
+        // 1ページ目は、カバーを広げた全体を横長のまま1枚にスキャンしたもの。回さない
+        guard page > 0, state.settings.autoRotate, let analysis = state.analyses[page] else { return 0 }
         if analysis.isLandscape && !analysis.rotationConfident {
             return majoritySidewaysRotation()
         }
         return analysis.autoRotation ?? (analysis.isLandscape ? majoritySidewaysRotation() : 0)
     }
 
-    /// 自信を持って判定できた横向きページの多いほうの向き（なければ 90 度）
+    /// 自信を持って判定できた横向きページの多いほうの向き（なければ 90 度）。
+    /// 調査では同じ本の中でも 90° と 270° が半々ほど混ざっていたので、当てにならない。間違ったら手動で直してもらう
     private func majoritySidewaysRotation() -> Int {
         var right = 0, left = 0
         for a in state.analyses.values where a.isLandscape && a.rotationConfident {
@@ -237,7 +239,7 @@ final class ReaderModel: ObservableObject {
         let settings = state.settings
         var analysis = state.analyses[page]
         if !bypass {
-            let wantsRotation = settings.autoRotate && state.rotationOverrides[page] == nil && analysis?.autoRotation == nil
+            let wantsRotation = page > 0 && settings.autoRotate && state.rotationOverrides[page] == nil && analysis?.autoRotation == nil
             if analysis == nil || wantsRotation {
                 analysis = await renderer.analyze(page: page, existing: analysis, detectRotation: wantsRotation)
                 if Task.isCancelled && analysis == nil { return }

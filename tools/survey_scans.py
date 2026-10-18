@@ -30,6 +30,8 @@ PAPER_HI = 0.995
 INK_P = 0.01         # インクの色：暗いほう 1%
 COLOR_CHROMA = 0.2
 COLOR_FRACTION = 0.03
+YELLOW_AXIS = np.array([1.0, 1.0, -2.0]) / np.sqrt(6)  # 黄 ↔ 青の軸
+YELLOW_ALLOWANCE = 0.3  # 黄色みとして差し引く量の上限
 
 
 def luma(rgb):
@@ -66,7 +68,10 @@ def analyze_pixels(rgb):
     mapped = np.clip((region - black) / span, 0, 1)
     ml = luma(mapped)
     mid = (ml > 0.08) & (ml < 0.95)
-    chroma = mapped.max(axis=1) - mapped.min(axis=1)
+    c = mapped - mapped.mean(axis=1, keepdims=True)
+    along = np.clip(c @ YELLOW_AXIS, 0, YELLOW_ALLOWANCE)
+    c = c - along[:, None] * YELLOW_AXIS
+    chroma = c.max(axis=1) - c.min(axis=1)
     colored = float(((chroma > COLOR_CHROMA) & mid).mean())
     return {
         "black_edges": {k: round(v, 3) for k, v in edges.items()},

@@ -71,7 +71,7 @@ final class LibraryStore: ObservableObject {
 
     /// フォルダの中を再帰的にたどって PDF を集める
     nonisolated private static func scan(root: URL) -> [Book] {
-        let keys: [URLResourceKey] = [.isDirectoryKey, .ubiquitousItemDownloadingStatusKey]
+        let keys: [URLResourceKey] = [.isDirectoryKey, .fileSizeKey, .ubiquitousItemDownloadingStatusKey]
         guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys, options: []) else {
             return []
         }
@@ -91,9 +91,12 @@ final class LibraryStore: ObservableObject {
             guard name.lowercased().hasSuffix(".pdf") else { continue }
 
             var downloaded = !placeholder
-            if !placeholder, let values = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
-               let status = values.ubiquitousItemDownloadingStatus {
-                downloaded = status == .current || status == .downloaded
+            if !placeholder, let values = try? url.resourceValues(forKeys: [.fileSizeKey, .ubiquitousItemDownloadingStatusKey]) {
+                if let status = values.ubiquitousItemDownloadingStatus {
+                    downloaded = status == .current || status == .downloaded
+                }
+                // 中身が空（0 バイト）の PDF は並べない（調査で、以前の補正版に 43 個あった）
+                if downloaded, values.fileSize == 0 { continue }
             }
 
             var relative = realURL.standardizedFileURL.path

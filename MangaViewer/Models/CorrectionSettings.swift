@@ -43,10 +43,11 @@ struct CorrectionSettings: Codable, Equatable {
     /// 横向き・逆さまのページを自動で回転する
     var autoRotate = true
     var colorMode: ColorMode = .auto
-    /// スキャン範囲の外の黒い縁・影を切り取る
-    var removeBlackEdges = true
-    /// 白い余白を詰める
-    var trimMargins = true
+    /// スキャン範囲の外の黒い縁・影を切り取る。
+    /// 調査では ScanSnap が紙の形で切り抜いていて縁も余白もほとんどなかったので、絵を削らないよう既定はオフ
+    var removeBlackEdges = false
+    /// 白い余白を詰める（既定はオフ。理由は上と同じ）
+    var trimMargins = false
     /// 黒の濃さ（ガンマ）。1 でそのまま、大きいほど中間の灰色が濃くなる
     var inkDarkness: Double = 1.1
     var direction: ReadingDirection = .rightToLeft

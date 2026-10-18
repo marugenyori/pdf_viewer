@@ -19,7 +19,11 @@ actor BookRenderer {
         if result == nil {
             guard let raw = Self.renderPDF(document, index: index, maxPixel: 1000) else { return nil }
             result = PageAnalyzer.analyze(raw)
-            if detectRotation {
+            if result?.isLandscape == false {
+                // 縦長のページは回さない（文字認識もしない）
+                result?.autoRotation = 0
+                result?.rotationConfident = true
+            } else if detectRotation {
                 let (angle, confident) = PageAnalyzer.detectRotation(raw)
                 result?.autoRotation = angle
                 result?.rotationConfident = confident

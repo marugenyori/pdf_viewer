@@ -171,7 +171,14 @@ enum PageAnalyzer {
         min(1, max(0, (v - black[i]) / (white[i] - black[i])))
     }
 
-    /// 紙の黄ばみを取り除いたあとも、はっきり色の付いた画素が一定以上あればカラーページ
+    /// 黄ばみの方向（黄 ↔ 青の軸）の単位ベクトル (1, 1, -2) / √6
+    private static let yellowAxis = (1 / 6.0.squareRoot(), 1 / 6.0.squareRoot(), -2 / 6.0.squareRoot())
+    /// 黄色みとして差し引く量の上限。これを超える黄色はインクの色とみなす
+    private static let yellowAllowance = 0.3
+
+    /// 紙の黄ばみを取り除いたあとも、はっきり色の付いた画素が一定以上あればカラーページ。
+    /// 黄ばみの強い本は、紙を白にそろえても中間の灰色に黄色みが残り、白黒ページがカラーと誤判定された
+    /// （調査で第25・31・37巻など）。そこで黄色の方向の色みを一定量まで差し引いてから判定する
     private static func detectColor(_ px: Pixels, in box: Box, black: [Double], white: [Double]) -> Bool {
         var colored = 0
         var counted = 0
@@ -184,7 +191,12 @@ enum PageAnalyzer {
                 counted += 1
                 let l = 0.299 * r + 0.587 * g + 0.114 * b
                 guard l > 0.08 && l < 0.95 else { continue }
-                if max(r, g, b) - min(r, g, b) > 0.2 { colored += 1 }
+                let mean = (r + g + b) / 3
+                var c = (r - mean, g - mean, b - mean)
+                let along = c.0 * yellowAxis.0 + c.1 * yellowAxis.1 + c.2 * yellowAxis.2
+                let removed = min(max(along, 0), yellowAllowance)
+                c = (c.0 - removed * yellowAxis.0, c.1 - removed * yellowAxis.1, c.2 - removed * yellowAxis.2)
+                if max(c.0, c.1, c.2) - min(c.0, c.1, c.2) > 0.2 { colored += 1 }
             }
         }
         return counted > 0 && Double(colored) / Double(counted) > 0.03
@@ -237,21 +249,19 @@ enum PageAnalyzer {
 
     // MARK: - 向きの判定
 
-    /// 文字認識のしやすさで向きを判定する（時計回りの角度、自信があるか）
+    /// 横向きのページを、文字認識のしやすさで 90° と 270° のどちらに回すか判定する（時計回りの角度、自信があるか）。
+    /// 調査では逆さま（180°）のページはなく、縦長のページは回さなくてよいので、横長のページだけを調べる
     static func detectRotation(_ image: CGImage) -> (Int, Bool) {
         let isLandscape = Double(image.width) > Double(image.height) * 1.08
-        let candidates = isLandscape ? [90, 270] : [0, 180]
+        guard isLandscape else { return (0, true) }
+        let candidates = [90, 270]
         let scores = candidates.map { angle -> Double in
             guard let rotated = ImageOps.rotate(image, clockwise: angle) else { return 0 }
             return textScore(rotated)
         }
         let (a, b) = (scores[0], scores[1])
-        if isLandscape {
-            let confident = max(a, b) >= 6 && max(a, b) > min(a, b) * 1.5
-            return (a >= b ? 90 : 270, confident)
-        }
-        if b >= 6 && b > a * 2 { return (180, true) }
-        return (0, a >= 6)
+        let confident = max(a, b) >= 6 && max(a, b) > min(a, b) * 1.5
+        return (a >= b ? 90 : 270, confident)
     }
 
     /// 読み取れた文字の量（確からしさ × 文字数の合計）
