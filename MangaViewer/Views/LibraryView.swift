@@ -105,6 +105,7 @@ struct BookCell: View {
     let book: Book
     let progress: ProgressStore.Entry?
     @EnvironmentObject private var settings: AppSettings
+    @State private var isLoading = false
     @State private var thumbnail: UIImage?
 
     var body: some View {
@@ -116,6 +117,8 @@ struct BookCell: View {
                         Image(uiImage: thumbnail)
                             .resizable()
                             .scaledToFill()
+                    } else if isLoading {
+                        ProgressView()
                     } else {
                         Image(systemName: book.isDownloaded ? "book.closed" : "icloud.and.arrow.down")
                             .font(.title)
@@ -150,7 +153,10 @@ struct BookCell: View {
             }
         }
         .task(id: "\(book.id)-\(book.isDownloaded)") {
+            // iCloud にしかない本は、表紙を作るために一時的にダウンロードするので時間がかかる
+            isLoading = !book.isDownloaded
             thumbnail = await ThumbnailStore.shared.thumbnail(for: book, settings: settings.defaults)
+            isLoading = false
         }
     }
 }
@@ -158,6 +164,7 @@ struct BookCell: View {
 /// アプリ全体の既定値
 struct DefaultSettingsView: View {
     @EnvironmentObject private var settings: AppSettings
+    @AppStorage(CoverDownloader.cellularKey) private var coverOnCellular = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -169,6 +176,13 @@ struct DefaultSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 CorrectionForm(settings: $settings.defaults)
+                Section {
+                    Toggle("モバイル通信でも表紙をダウンロード", isOn: $coverOnCellular)
+                } header: {
+                    Text("表紙")
+                } footer: {
+                    Text("iCloud にしかない本は、表紙を作るために1冊まるごと（約 70MB）ダウンロードし、作り終えたら iPhone から消します（iCloud には残ります）。ふだんは Wi-Fi のときだけ行います。")
+                }
             }
             .navigationTitle("補正の既定値")
             .navigationBarTitleDisplayMode(.inline)

@@ -5,6 +5,8 @@ actor ThumbnailStore {
     static let shared = ThumbnailStore()
 
     private var memory: [String: UIImage] = [:]
+    /// 作成中の表紙（同じ本を二重にダウンロードしないため）
+    private var inFlight: [String: Task<UIImage?, Never>] = [:]
 
     private var directory: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -13,16 +15,46 @@ actor ThumbnailStore {
         return dir
     }
 
-    func thumbnail(for book: Book, settings: CorrectionSettings) -> UIImage? {
+    func thumbnail(for book: Book, settings: CorrectionSettings) async -> UIImage? {
         if let image = memory[book.key] { return image }
         let file = directory.appendingPathComponent(book.key + ".jpg")
         if let image = UIImage(contentsOfFile: file.path) {
             memory[book.key] = image
             return image
         }
-        // iCloud にしかない本は、開いてダウンロードされるまで表紙を作らない
-        guard book.isDownloaded,
-              let document = CGPDFDocument(book.url as CFURL), document.numberOfPages > 0,
+        if let running = inFlight[book.key] { return await running.value }
+        // 画面から消えた本のためには、ダウンロードを始めない
+        if Task.isCancelled { return nil }
+
+        let task = Task.detached(priority: .utility) { () -> UIImage? in
+            await Self.makeCover(for: book, settings: settings)
+        }
+        inFlight[book.key] = task
+        let image = await task.value
+        inFlight[book.key] = nil
+        if let image {
+            if let data = image.jpegData(compressionQuality: 0.8) {
+                try? data.write(to: file, options: .atomic)
+            }
+            memory[book.key] = image
+        }
+        return image
+    }
+
+    /// 表紙を作る。iCloud にしかない本は一時的にダウンロードし、作り終えたら iPhone から消す
+    private static func makeCover(for book: Book, settings: CorrectionSettings) async -> UIImage? {
+        let wasLocal = CoverDownloader.isLocal(book.url)
+        if !wasLocal {
+            guard CoverDownloader.mayDownload, await CoverDownloader.download(book.url) else { return nil }
+        }
+        defer {
+            if !wasLocal { CoverDownloader.evict(book) }
+        }
+        return render(book: book, settings: settings)
+    }
+
+    private static func render(book: Book, settings: CorrectionSettings) -> UIImage? {
+        guard let document = CGPDFDocument(book.url as CFURL), document.numberOfPages > 0,
               let raw = BookRenderer.renderPDF(document, index: 0, maxPixel: 600) else { return nil }
         let analysis = PageAnalyzer.analyze(raw)
         var crop = NormRect.full
@@ -37,12 +69,7 @@ actor ThumbnailStore {
                   grayscale: settings.colorMode == .grayscale || (settings.colorMode != .color && !analysis.isColor),
                   gamma: settings.inkDarkness)
         let cg = ImageOps.process(raw, crop: crop, color: color, clockwise: 0) ?? raw
-        let image = UIImage(cgImage: cg)
-        if let data = image.jpegData(compressionQuality: 0.8) {
-            try? data.write(to: file, options: .atomic)
-        }
-        memory[book.key] = image
-        return image
+        return UIImage(cgImage: cg)
     }
 
     func invalidate(_ book: Book) {

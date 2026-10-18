@@ -47,6 +47,7 @@ final class ReaderModel: ObservableObject {
 
     func open() async {
         guard renderer == nil else { return }
+        OpenBooks.shared.insert(book.key)
         if !book.isDownloaded {
             phase = .loading("iCloud からダウンロードしています…")
         }
@@ -71,6 +72,7 @@ final class ReaderModel: ObservableObject {
     }
 
     func close() {
+        OpenBooks.shared.remove(book.key)
         loadTask?.cancel()
         saveState()
     }
