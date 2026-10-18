@@ -11,6 +11,8 @@ struct MangaViewerApp: App {
                 .environmentObject(library)
                 .environmentObject(settings)
                 .environmentObject(ProgressStore.shared)
+                // ショートカット（ChatGPT）からの答えを受け取る
+                .onOpenURL { url in ChatGPTBridge.shared.handle(url) }
         }
     }
 }

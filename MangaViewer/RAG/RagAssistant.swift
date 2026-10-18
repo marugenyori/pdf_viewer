@@ -28,23 +28,21 @@ enum RagAssistant {
     """
 
     static func answer(question: String, indexes: [RagIndex], engine: AskEngine) async throws -> Answer {
-        let useClaude: Bool
-        switch engine {
-        case .auto: useClaude = ClaudeClient.hasKey
-        case .claude: useClaude = true
-        case .onDevice: useClaude = false
-        }
+        let backend = engine.backend
+        let useClaude = backend == .claude
 
-        // 1. 検索キーワードを作る（AI が使えなければ、質問の言葉そのものを使う）
+        // 1. 検索キーワードを作る（AI が使えなければ、質問の言葉そのものを使う）。
+        //    ChatGPT はショートカットを2回呼ぶことになるので、検索語は作らせない
         var keywords = plainKeywords(question)
-        if let generated = try? await generateKeywords(question, useClaude: useClaude), !generated.isEmpty {
+        if backend != .chatGPT,
+           let generated = try? await generateKeywords(question, useClaude: useClaude), !generated.isEmpty {
             keywords = generated + keywords
         }
 
         // 2. 索引で探す
         let hits = indexes.flatMap { $0.search(keywords, limit: 20) }
             .sorted { $0.score > $1.score }
-        let top = Array(hits.prefix(useClaude ? 8 : 3))
+        let top = Array(hits.prefix(backend == .claude ? 8 : backend == .chatGPT ? 4 : 3))
         guard !top.isEmpty else {
             return Answer(text: "誌面から関係しそうなページが見つかりませんでした。言葉を変えて聞いてみてください。（検索語: \(keywords.joined(separator: "、"))）",
                           sources: [], engineName: "")
@@ -52,7 +50,8 @@ enum RagAssistant {
 
         // 3. 当たったページの文字をもとに答える
         // iPhone 内の AI は一度に読める量が少ないので、抜き出しを短くする
-        let limit = useClaude ? 3000 : 450
+        // ChatGPT へはショートカットの URL で渡すので、こちらも長くしすぎない
+        let limit = backend == .claude ? 3000 : backend == .chatGPT ? 1200 : 450
         let excerpts = top.enumerated().map { i, hit in
             "[\(i + 1)] \(hit.page.file) の \(hit.page.page + 1) ページ\n\(String(hit.page.text.prefix(limit)))"
         }.joined(separator: "\n\n")
@@ -60,6 +59,10 @@ enum RagAssistant {
         if useClaude {
             let text = try await ClaudeClient.ask(system: answerInstructions, text: prompt, images: [])
             return Answer(text: text, sources: top, engineName: "Claude")
+        }
+        if backend == .chatGPT {
+            let text = try await ChatGPTBridge.shared.ask(prompt: "\(answerInstructions)\n\n\(prompt)", image: nil)
+            return Answer(text: text, sources: top, engineName: "ChatGPT")
         }
         let text = try await OnDeviceAI.ask(instructions: answerInstructions, prompt: prompt)
         return Answer(text: text, sources: top, engineName: "iPhone 内の AI")

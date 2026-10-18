@@ -83,6 +83,8 @@ struct AskView: View {
             return "Claude に、ページの画像と質問を送ります（通信が必要。API の料金がかかります）。"
         case .onDevice:
             return "iPhone の中だけで答えます。ページの文字を読み取って渡すので、絵の内容についての答えは苦手です。"
+        case .chatGPT:
+            return "ショートカット「\(ChatGPTBridge.shared.shortcutName)」を使って、Apple Intelligence の ChatGPT に聞きます。いったんショートカットのアプリに移り、答えが出たらこのアプリに戻ります。"
         case .auto:
             return ClaudeClient.hasKey
                 ? "Claude に、ページの画像と質問を送ります（通信が必要。API の料金がかかります）。"
@@ -175,6 +177,8 @@ private struct FlowChips: View {
 /// 設定画面の「質問（AI）」の項目
 struct AskSettingsSection: View {
     @AppStorage(AskEngine.storageKey) private var engineRaw = AskEngine.auto.rawValue
+    /// ChatGPTBridge.shortcutNameKey と同じ
+    @AppStorage("chatGPTShortcutName") private var shortcutName = 
     @State private var keyInput = ""
     @State private var hasKey = ClaudeClient.hasKey
 
@@ -205,6 +209,8 @@ struct AskSettingsSection: View {
                 }
                 .disabled(keyInput.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            TextField("ChatGPT 用のショートカットの名前（\(ChatGPTBridge.defaultShortcutName)）", text: $shortcutName)
+                .textInputAutocapitalization(.never)
             let device = OnDeviceAI.status
             Label(device.available ? "iPhone 内の AI：使えます" : "iPhone 内の AI：\(device.reason)",
                   systemImage: device.available ? "checkmark.circle" : "xmark.circle")
@@ -213,7 +219,7 @@ struct AskSettingsSection: View {
         } header: {
             Text("質問（AI）")
         } footer: {
-            Text("Claude を使うと、ページの画像と質問を Anthropic に送ります。キーは console.anthropic.com で作り、この iPhone のキーチェーンにだけ保存します（Claude のサブスクとは別の、使った分だけの料金です）。iPhone 内の AI は無料で、通信もしません。")
+            Text("Claude を使うと、ページの画像と質問を Anthropic に送ります。キーは console.anthropic.com で作り、この iPhone のキーチェーンにだけ保存します（Claude のサブスクとは別の、使った分だけの料金です）。iPhone 内の AI は無料で、通信もしません。ChatGPT は、Apple Intelligence の ChatGPT を使うショートカットを経由して聞きます（先にショートカットを作っておく必要があります）。")
         }
     }
 }
