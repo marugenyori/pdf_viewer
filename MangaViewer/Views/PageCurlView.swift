@@ -98,7 +98,9 @@ struct PageCurlView: UIViewControllerRepresentable {
                 return
             }
             guard let shown = shownIndex, shown != target else { return }
-            let direction: UIPageViewController.NavigationDirection = target > shown ? .forward : .reverse
+            // UIKit の forward は左綴じの向き。右綴じでは逆にする（下のデータソースも同じ）
+            let ahead = (target > shown) != parent.rightToLeft
+            let direction: UIPageViewController.NavigationDirection = ahead ? .forward : .reverse
             // 隣のページならめくる。離れたページへは一気に移る
             let animated = abs(target - shown) == 1
             isTransitioning = animated
@@ -110,16 +112,23 @@ struct PageCurlView: UIViewControllerRepresentable {
 
         // MARK: データソース
 
+        // UIKit の「後ろ（after）」は、綴じ目の位置にかかわらず左綴じの向き（右端をつまんで左へ）だった。
+        // 右綴じでは before と after を入れ替えて、左端をつまんで右へめくると次のページに進むようにする
         func pageViewController(_ pageViewController: UIPageViewController,
                                 viewControllerBefore viewController: UIViewController) -> UIViewController? {
-            guard let index = (viewController as? SpreadPage)?.index, index > 0 else { return nil }
-            return page(at: index - 1)
+            neighbor(of: viewController, step: parent.rightToLeft ? 1 : -1)
         }
 
         func pageViewController(_ pageViewController: UIPageViewController,
                                 viewControllerAfter viewController: UIViewController) -> UIViewController? {
-            guard let index = (viewController as? SpreadPage)?.index, index + 1 < parent.model.spreads.count else { return nil }
-            return page(at: index + 1)
+            neighbor(of: viewController, step: parent.rightToLeft ? -1 : 1)
+        }
+
+        private func neighbor(of viewController: UIViewController, step: Int) -> UIViewController? {
+            guard let index = (viewController as? SpreadPage)?.index else { return nil }
+            let target = index + step
+            guard target >= 0, target < parent.model.spreads.count else { return nil }
+            return page(at: target)
         }
 
         // MARK: 指でめくったとき
